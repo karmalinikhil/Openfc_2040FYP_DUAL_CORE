@@ -1,0 +1,169 @@
+# OpenFC2040 Default Parameters
+# PX4 Autopilot Configuration
+
+# System
+SYS_AUTOSTART 4001  # Generic Quadcopter
+SYS_AUTOCONFIG 1    # Enable automatic configuration
+SYS_HAS_BARO 1      # Has barometer
+SYS_HAS_MAG 0       # No magnetometer (can be set to 1 if external mag connected)
+
+# Battery Monitoring
+BAT1_V_DIV 11.0     # Voltage divider ratio (adjust based on actual resistors)
+BAT1_A_PER_V 40.0   # Current sensor scaling (adjust based on actual sensor)
+BAT1_CAPACITY 2200  # Battery capacity in mAh
+BAT1_N_CELLS 3      # Number of cells (3S default)
+BAT1_V_CHARGED 4.2  # Voltage per cell when charged
+BAT1_V_EMPTY 3.5    # Voltage per cell when empty
+BAT1_LOW_THR 0.15   # Low battery warning at 15%
+BAT1_CRIT_THR 0.07  # Critical battery at 7%
+BAT1_EMERGEN_THR 0.05 # Emergency battery at 5%
+
+# Sensors
+SENS_BOARD_ROT 0    # No board rotation
+SENS_BOARD_X_OFF 0  # Accelerometer X offset
+SENS_BOARD_Y_OFF 0  # Accelerometer Y offset
+SENS_BOARD_Z_OFF 0  # Accelerometer Z offset
+SENS_DPRES_OFF 0    # Differential pressure offset
+
+# IMU Configuration
+IMU_GYRO_CUTOFF 30  # Gyro low-pass filter cutoff frequency
+IMU_ACCEL_CUTOFF 15 # Accelerometer low-pass filter cutoff frequency
+IMU_GYRO_RATEMAX 800 # Maximum gyro rate
+
+# PWM Outputs
+PWM_RATE 400        # PWM rate in Hz
+PWM_MIN 1000        # Minimum PWM value in microseconds
+PWM_MAX 2000        # Maximum PWM value in microseconds
+PWM_DISARMED 900    # PWM value when disarmed
+
+# Mixer
+MIXER quad_x        # Quadcopter X configuration
+
+# RC Input
+RC_PORT_CONFIG 300  # RC configuration (300 = RC input)
+RC_CHAN_CNT 8       # Number of RC channels
+RC_RSSI_PWM_CHAN 0  # RSSI PWM channel (0 = disabled)
+
+# Failsafe
+COM_RC_LOSS_T 0.5   # RC loss timeout in seconds
+COM_DL_LOSS_T 10    # Datalink loss timeout in seconds
+NAV_RCL_ACT 2       # RC loss action (2 = Return to Launch)
+NAV_DLL_ACT 0       # Datalink loss action (0 = Disabled)
+
+# Flight Modes
+COM_FLTMODE1 0      # Flight mode 1 (Manual)
+COM_FLTMODE2 1      # Flight mode 2 (Altitude)
+COM_FLTMODE3 2      # Flight mode 3 (Position)
+COM_FLTMODE4 -1     # Flight mode 4 (not set)
+COM_FLTMODE5 -1     # Flight mode 5 (not set)
+COM_FLTMODE6 3      # Flight mode 6 (Return)
+
+# Multicopter Position Control
+MPC_THR_HOVER 0.5   # Hover throttle
+MPC_THR_MIN 0.12    # Minimum throttle in auto modes
+MPC_THR_MAX 1.0     # Maximum throttle in auto modes
+MPC_Z_P 1.0         # Altitude controller P gain
+MPC_Z_VEL_P 0.2     # Altitude velocity controller P gain
+MPC_Z_VEL_I 0.02    # Altitude velocity controller I gain
+MPC_Z_VEL_D 0.0     # Altitude velocity controller D gain
+MPC_Z_VEL_MAX_UP 3.0 # Maximum ascent rate
+MPC_Z_VEL_MAX_DN 1.0 # Maximum descent rate
+MPC_XY_P 0.95       # Position controller P gain
+MPC_XY_VEL_P 0.09   # Velocity controller P gain
+MPC_XY_VEL_I 0.02   # Velocity controller I gain
+MPC_XY_VEL_D 0.01   # Velocity controller D gain
+MPC_XY_VEL_MAX 12   # Maximum horizontal velocity
+MPC_TILTMAX_AIR 45  # Maximum tilt angle in air
+MPC_LAND_SPEED 0.7  # Landing speed
+
+# Multicopter Attitude Control
+MC_ROLL_P 6.5       # Roll P gain
+MC_ROLLRATE_P 0.15  # Roll rate P gain
+MC_ROLLRATE_I 0.05  # Roll rate I gain
+MC_ROLLRATE_D 0.003 # Roll rate D gain
+MC_PITCH_P 6.5      # Pitch P gain
+MC_PITCHRATE_P 0.15 # Pitch rate P gain
+MC_PITCHRATE_I 0.05 # Pitch rate I gain
+MC_PITCHRATE_D 0.003 # Pitch rate D gain
+MC_YAW_P 2.8        # Yaw P gain
+MC_YAWRATE_P 0.2    # Yaw rate P gain
+MC_YAWRATE_I 0.1    # Yaw rate I gain
+MC_YAWRATE_D 0.0    # Yaw rate D gain
+
+# EKF2
+EKF2_EN 1           # Enable EKF2
+EKF2_AID_MASK 1     # Use GPS
+EKF2_HGT_MODE 0     # Height mode (0 = Barometric)
+EKF2_MAG_TYPE 5     # Magnetometer type (5 = None)
+EKF2_BARO_NOISE 2.0 # Barometer noise
+EKF2_ACC_NOISE 0.35 # Accelerometer noise
+EKF2_GYR_NOISE 0.015 # Gyroscope noise
+EKF2_MAG_NOISE 0.05 # Magnetometer noise
+
+# MAVLink
+MAV_0_CONFIG 101    # TELEM1
+MAV_0_MODE 0        # Normal
+MAV_0_RATE 1200     # Data rate (bytes/s)
+MAV_0_FORWARD 1     # Enable forwarding
+MAV_1_CONFIG 102    # USB
+MAV_1_MODE 2        # Onboard
+MAV_1_RATE 0        # Maximum rate
+MAV_1_FORWARD 1     # Enable forwarding
+
+# Commander
+COM_ARM_EKF_AB 0.0022 # EKF acceleration bias limit
+COM_ARM_EKF_GB 0.0011 # EKF gyro bias limit
+COM_ARM_EKF_HGT 1.0 # EKF height error limit
+COM_ARM_EKF_POS 0.5 # EKF position error limit
+COM_ARM_EKF_VEL 0.5 # EKF velocity error limit
+COM_ARM_EKF_YAW 0.5 # EKF yaw error limit
+COM_ARM_IMU_ACC 0.7 # IMU acceleration consistency check
+COM_ARM_IMU_GYR 0.25 # IMU gyro consistency check
+COM_ARM_MAG_ANG 45 # Maximum magnetic field angle
+COM_ARM_MAG_STR 1  # Require valid mag strength
+COM_ARM_WO_GPS 1   # Allow arming without GPS
+COM_DISARM_LAND 2  # Auto-disarm after landing (seconds)
+COM_RC_IN_MODE 0   # RC input mode (0 = RC transmitter)
+
+# Circuit Breakers
+CBRK_SUPPLY_CHK 0  # Enable power supply check
+CBRK_USB_CHK 0     # Enable USB check
+CBRK_AIRSPD_CHK 162128 # Disable airspeed check (no airspeed sensor)
+CBRK_FLIGHTTERM 121212 # Disable flight termination
+CBRK_IO_SAFETY 0   # Enable safety switch
+
+# Logging
+SDLOG_DIRS_MAX 7   # Maximum number of log directories
+SDLOG_MODE -1      # Logging mode (-1 = disabled by default)
+SDLOG_PROFILE 3    # Logging profile (3 = Default set)
+
+# LED
+LED_RGB_MAXBRT 15  # Maximum RGB LED brightness
+
+# Buzzer
+CBRK_BUZZER 0      # Enable buzzer
+
+# Testing
+SYS_PARAM_VER 1    # Parameter version
+SYS_AUTOSTART 4001 # Vehicle type (Generic Quadcopter)
+
+# Performance Monitoring
+PERF_EN 1          # Enable performance monitoring
+
+# GPS (when connected)
+GPS_1_CONFIG 201   # GPS on UART1
+GPS_1_GNSS 0       # Use all GNSS systems
+GPS_1_PROTOCOL 0   # Auto-detect protocol
+
+# Safety
+SAFETY_EN 1        # Enable safety switch
+COM_PREARM_MODE 1  # Safety switch is mandatory
+
+# Wind Estimation (optional)
+WEST_EN 0          # Disable wind estimation (can enable if needed)
+
+# Land Detector
+LNDMC_Z_VEL_MAX 0.25 # Maximum velocity for land detection
+LNDMC_XY_VEL_MAX 1.5 # Maximum horizontal velocity for land detection
+LNDMC_ROT_MAX 20   # Maximum rotation for land detection
+LNDMC_THR_RANGE 0.1 # Throttle range for land detection
