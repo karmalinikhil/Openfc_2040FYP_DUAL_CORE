@@ -2,8 +2,7 @@
 
 **Understanding the Architecture and Build Process**
 
-> **⚠️ Critical Reading**: Many collaborators think "there's one file in VSCode that generates the firmware."  
-> **This is NOT true**. This document explains how the build system actually works.
+> Critical reading: many collaborators assume a single file in VS Code builds the entire firmware. That is incorrect - this document explains the real build system.
 
 ---
 
@@ -21,11 +20,11 @@
 
 ## The Build Process Myth
 
-### ❌ Common Misconception
+### Common Misconception
 
 "There's a single file you run in VSCode that compiles everything."
 
-### ✅ Reality
+### Reality
 
 Building PX4 firmware involves:
 1. **CMake** reads hundreds of `CMakeLists.txt` files
@@ -277,7 +276,7 @@ CONFIG_FS_ROMFS=y                          # Enable ROMFS for startup scripts
 
 ## Current Project Status
 
-### What Works ✅
+### What Works
 
 1. **Build System**:
    - PX4 compiles successfully for RP2040
@@ -300,7 +299,7 @@ CONFIG_FS_ROMFS=y                          # Enable ROMFS for startup scripts
    - SPI bus configured (IMU, Barometer)
    - UART ports mapped (GPS, Telemetry)
 
-### What Doesn't Work ❌
+### What Doesn't Work
 
 1. **USB Console**:
    - Garbled output on `/dev/ttyACM0`
@@ -312,7 +311,7 @@ CONFIG_FS_ROMFS=y                          # Enable ROMFS for startup scripts
    - Cannot test sensors without console access
    - Cannot verify peripherals (LEDs, PWM, RC)
 
-### Known Blockers 🚧
+### Known Blockers
 
 1. **UART Testing**:
    - Need: USB-to-Serial adapter ($3-10)

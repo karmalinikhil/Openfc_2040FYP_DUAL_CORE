@@ -58,9 +58,10 @@ The OpenFC2040 features:
 
 1. **Clone and setup**:
    ```bash
-   git clone <this-repo>
-   cd OPENFC2040
+   git clone https://github.com/Rispats/OpenFC2040_FYP.git
+   cd OpenFC2040_FYP
    git submodule update --init --recursive
+   cd firmware/test-firmware/peripherals_testing
    ```
 
 2. **Build firmware**:

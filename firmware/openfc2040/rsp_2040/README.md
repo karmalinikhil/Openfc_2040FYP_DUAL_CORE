@@ -31,27 +31,21 @@ This directory contains a complete PX4 firmware port for the OpenFC2040 flight c
 
 ## Quick Start
 
-### For New Users
+### Build and flash from this workspace
+
+Run these commands from the repository root (`OpenFC2040_FYP`):
 
 ```bash
-# Clone the repository with submodules
-git clone --recursive https://github.com/yourteam/rsp_2040.git
-cd rsp_2040
-
-# Run setup (first time only)
-./scripts/setup.sh
-
-# Build firmware
-./scripts/build.sh
-
-# Flash to board
-./scripts/flash.sh
+./scripts/setup_workspace.sh       # one-time dependency check and submodule sync
+cd firmware/openfc2040
+./scripts/build.sh                 # build PX4 firmware
+./scripts/flash.sh                 # flash UF2 to the board (BOOTSEL mode)
 ```
 
-### For Existing Developers
+### Incremental rebuild only
 
 ```bash
-# Just build (if already set up)
+cd firmware/openfc2040
 ./scripts/build.sh
 ```
 
@@ -103,12 +97,9 @@ cd rsp_2040
 
 1. **First-time setup**
    ```bash
-   # Clone with submodules
-   git clone --recursive https://github.com/yourteam/rsp_2040.git
-   cd rsp_2040
-   
-   # Run setup script
-   ./scripts/setup.sh
+   cd OpenFC2040_FYP
+   ./scripts/setup_workspace.sh
+   cd firmware/openfc2040
    ```
 
 2. **Build the firmware**
@@ -310,8 +301,8 @@ BAT1_A_PER_V = 40.0    # Current sensor scaling
 
 # PWM Configuration
 PWM_RATE = 400         # PWM frequency in Hz
-PWM_MIN = 1000         # Minimum PWM value (μs)
-PWM_MAX = 2000         # Maximum PWM value (μs)
+PWM_MIN = 1000         # Minimum PWM value (us)
+PWM_MAX = 2000         # Maximum PWM value (us)
 
 # Sensor orientation
 SENS_BOARD_ROT = 0     # Board rotation (if needed)
@@ -345,8 +336,8 @@ SYS_AUTOSTART = 4001   # Generic Quadcopter
 3. **PWM Output Test**
    ```bash
    # Test individual channels
-   pwm test -c 1 -p 1500  # Channel 1, 1500μs
-   pwm test -c 2 -p 1500  # Channel 2, 1500μs
+      pwm test -c 1 -p 1500  # Channel 1, 1500 us
+      pwm test -c 2 -p 1500  # Channel 2, 1500 us
    ```
 
 ### SITL (Software In The Loop)
@@ -480,14 +471,14 @@ rsp_2040/                           # Main repository (self-sufficient)
 
 ### What to Edit
 
-**✅ Edit these (your custom code):**
+**Recommended files to edit (your code):**
 - `board/rsp_2040/` - All board-specific files
 - `drivers/` - Custom drivers
 - `scripts/` - Build scripts
 - `docs/` - Documentation
 - `configs/` - Configuration files
 
-**❌ Don't edit these:**
+**Avoid editing these (auto-managed):**
 - `px4-autopilot/` - Managed as Git submodule
 - `build/` - Auto-generated build artifacts
 
@@ -509,7 +500,7 @@ rsp_2040/                           # Main repository (self-sufficient)
 
 ## Safety Considerations
 
-⚠️ **WARNING**: This is flight control software. Improper configuration or bugs can cause crashes.
+**Warning**: this is flight control software. Improper configuration or bugs can cause crashes.
 
 - Always test with propellers removed
 - Use a current-limited power supply during development

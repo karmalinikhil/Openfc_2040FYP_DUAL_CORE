@@ -2,8 +2,8 @@
 
 **Complete setup for debugging OpenFC2040 firmware with Picoprobe/Debugprobe**
 
-> 🐛 **Purpose**: Use real debugger to step through code, set breakpoints, inspect variables  
-> 🔧 **Hardware Required**: Picoprobe or Debugprobe (another RP2040/RP2350 board)
+> Purpose: use a hardware debugger to step through code, set breakpoints, and inspect variables.  
+> Hardware required: Picoprobe or Debugprobe (another RP2040/RP2350 board)
 
 ---
 
@@ -45,14 +45,14 @@ OpenFC2040 Target (RP2040 running your PX4 firmware)
 
 ### What You Can Do
 
-- ✅ Set breakpoints (pause execution at specific line)
-- ✅ Step through code line-by-line
-- ✅ Inspect variables and memory
-- ✅ View CPU registers
-- ✅ Halt/resume firmware
-- ✅ Flash firmware via SWD
-- ✅ View call stack
-- ✅ Watch expressions
+- Set breakpoints (pause execution at specific lines)
+- Step through code line-by-line
+- Inspect variables and memory
+- View CPU registers
+- Halt or resume firmware
+- Flash firmware via SWD
+- View the call stack
+- Watch expressions
 
 ---
 
@@ -228,7 +228,7 @@ Raspberry Pi Pico (Picoprobe)
 - Pin 2: SWCLK
 - Pin 3: SWDIO
 
-**⚠️ Important**:
+**Important**:
 - Do NOT connect VCC/3V3 between boards!
 - Only GND, SWCLK, SWDIO
 - OpenFC2040 powered separately via USB
@@ -729,7 +729,7 @@ GDB Text User Interface shows source code:
 
 ---
 
-**Happy Debugging!** 🐛
+**Happy debugging!**
 
 For more help, see:
 - [README.md](../README.md) - Main project documentation

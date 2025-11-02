@@ -149,19 +149,19 @@ Once you see the `nsh>` prompt, you can:
 
 ## Why This is Better Than Fighting USB
 
-1. ✅ **Proven solution** - All RP2040 flight controllers use UART debug console
-2. ✅ **More reliable** - No USB enumeration/timing issues
-3. ✅ **Better for debugging** - Works even if USB stack crashes
-4. ✅ **Industry standard** - Matches other autopilot hardware (Pixhawk, etc.)
-5. ✅ **One-time $10 investment** - Reusable for all embedded projects
+1. **Proven solution** - all RP2040 flight controllers use a UART debug console
+2. **More reliable** - no USB enumeration or timing issues
+3. **Better for debugging** - works even if the USB stack crashes
+4. **Industry standard** - matches other autopilot hardware (Pixhawk, etc.)
+5. **One-time $10 investment** - reusable for future embedded projects
 
 vs.
 
 Fixing USB console:
-- ❌ 20-40 hours of USB driver debugging
-- ❌ May require NuttX kernel patches
-- ❌ 30-50% chance of success
-- ❌ Still less reliable than UART
+- 20-40 hours of USB driver debugging
+- May require NuttX kernel patches
+- 30-50% chance of success
+- Still less reliable than UART
 
 ---
 
@@ -169,4 +169,4 @@ Fixing USB console:
 
 **You're not blocked!** This is a platform limitation, not your mistake. Getting a $10 USB-Serial adapter is the **correct, professional solution** that will save you days of frustration.
 
-Your firmware is ready to go - just waiting on hardware. 🚀
+Your firmware is ready to go - just waiting on hardware.

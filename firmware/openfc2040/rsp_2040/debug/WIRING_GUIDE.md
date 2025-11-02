@@ -51,9 +51,9 @@
 
 | Picoprobe Pin | Function | Wire Color (Suggested) | OpenFC2040 Pin | Notes |
 |---------------|----------|------------------------|----------------|-------|
-| **GPIO2** | SWCLK | Yellow | **SWCLK** (SWD header) | ⚠️ **CRITICAL** - Clock signal |
-| **GPIO3** | SWDIO | Orange | **SWDIO** (SWD header) | ⚠️ **CRITICAL** - Data signal |
-| **GND** | Ground | Black | **GND** (SWD header) | ⚠️ **MANDATORY** - Common ground |
+| **GPIO2** | SWCLK | Yellow | **SWCLK** (SWD header) | **Critical** - clock signal |
+| **GPIO3** | SWDIO | Orange | **SWDIO** (SWD header) | **Critical** - data signal |
+| **GND** | Ground | Black | **GND** (SWD header) | **Mandatory** - common ground |
 | **VBUS/3V3** | Voltage Ref | Red | **3V3** (if available) | Optional - for VTREF |
 | GPIO4 | UART TX | Green | GPIO1 (RX) | Optional - UART debug |
 | GPIO5 | UART RX | Blue | GPIO0 (TX) | Optional - UART debug |
@@ -91,7 +91,7 @@ Pin 3: GND    ○───
 Pin 4: 3V3    ○───  (Optional - may not be present)
 ```
 
-**⚠️ IMPORTANT**: Double-check your board schematic or silkscreen labels!
+**Important**: double-check your board schematic or silkscreen labels.
 
 ### Step 3: Wire Connection
 
@@ -108,12 +108,12 @@ Pin 4: 3V3    ○───  (Optional - may not be present)
 6. Picoprobe **GPIO5** → OpenFC2040 **GPIO0** (TX)
 
 **Best Practices**:
-- ✅ Use **female-to-female jumper wires**
-- ✅ Keep wires **short** (< 15cm recommended)
-- ✅ **Twist** SWCLK and SWDIO wires together (reduces noise)
-- ✅ Avoid breadboards (direct connection only)
-- ✅ Use different colors for easy identification
-- ❌ Don't connect when boards are powered on (connect first, then power)
+- Use **female-to-female jumper wires**
+- Keep wires **short** (< 15cm recommended)
+- **Twist** SWCLK and SWDIO wires together (reduces noise)
+- Avoid breadboards (direct connection only)
+- Use different colors for easy identification
+- Do not connect when boards are powered on (connect first, then power)
 
 ### Step 4: Power Up Sequence
 
@@ -293,7 +293,7 @@ Once wiring is complete and OpenOCD connects:
 # Should show data in SRAM
 ```
 
-If all tests pass: ✅ **SWD debugging is working!**
+If all tests pass: **SWD debugging is working.**
 
 ## Next Steps
 
