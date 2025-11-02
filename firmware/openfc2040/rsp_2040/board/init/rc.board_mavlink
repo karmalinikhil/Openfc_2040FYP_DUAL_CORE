@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# OpenFC2040 board specific MAVLink configuration
+#------------------------------------------------------------------------------
+
+# Start MAVLink on telemetry port (UART0)
+mavlink start -d /dev/ttyS0 -b 57600 -m normal -x -z
+
+# Start MAVLink on USB if connected
+mavlink start -d /dev/ttyACM0 -b 115200 -m normal -x -z

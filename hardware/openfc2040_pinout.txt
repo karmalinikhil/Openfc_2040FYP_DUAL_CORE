@@ -1,0 +1,66 @@
+OpenFC2040 Board Pin Mappings
+============================
+
+LED (RGB):
+- Red:   GPIO13
+- Green: GPIO14
+- Blue:  GPIO15
+
+IMU (LSM6DS3TR-C):
+- CS:   GPIO9
+- SCK:  GPIO10
+- MOSI: GPIO11 (SDA)
+- MISO: GPIO8 (SDO)
+
+Barometer (DPS310):
+- CS:   GPIO12
+- SCK:  GPIO10 (shared with IMU)
+- MOSI: GPIO11 (SDA, shared with IMU)
+- MISO: GPIO8 (SDO, shared with IMU)
+
+
+ESCs (PWM):
+- ESC0: GPIO20
+- ESC1: GPIO21
+- ESC2: GPIO22
+- ESC3: GPIO23
+
+GPS:
+- TX : GPIO4
+- RX:  GPIO5
+- SDA: GPIO6
+- SDL: GPIO7
+
+TELEMETRY:
+- TX : GPIO0
+- RX:  GPIO1
+- SDA: GPIO2
+- SDL: GPIO3
+
+FLASH(W25Q128JV):
+- CS:  QSPI_CS
+- DO:  QSPI_SD1
+- IO2: QSPI_SD2
+- IO3: QSPI_SD3
+- CLK: QSPI_SCLK
+- DI:  QSPI_SDO
+
+CRYSTAL:
+- XIN:  XIN
+- XOUT: XOUT
+
+USB & POWER:
+- D-:   USB_DM
+- D+:   USB_DP
+- VBUS: GPIO29 (ADC)
+
+BATTERY:
+- BATT_A: GPIO28
+- BATT_V:  GPIO27
+
+Other:
+- RC Input: GPIO24
+- Buzzer:   GPIO25
+
+Note: This pinout is for the OpenFC2040 flight controller with RP2040 MCU.
+

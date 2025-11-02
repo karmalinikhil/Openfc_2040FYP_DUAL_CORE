@@ -1,0 +1,5 @@
+/home/rishi-patil/Desktop/FYP/debugprobe/build-pico2/pioasm-install/pioasm/pioasm
+/home/rishi-patil/Desktop/FYP/debugprobe/build-pico2/pioasm-install/pioasm/pioasmTargets.cmake
+/home/rishi-patil/Desktop/FYP/debugprobe/build-pico2/pioasm-install/pioasm/pioasmTargets-release.cmake
+/home/rishi-patil/Desktop/FYP/debugprobe/build-pico2/pioasm-install/pioasm/pioasmConfig.cmake
+/home/rishi-patil/Desktop/FYP/debugprobe/build-pico2/pioasm-install/pioasm/pioasmConfigVersion.cmake

@@ -1,0 +1,14 @@
+# Target labels
+ pico_sdk-populate
+# Source files and their labels
+/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/pico_sdk-subbuild/CMakeFiles/pico_sdk-populate
+/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/pico_sdk-subbuild/CMakeFiles/pico_sdk-populate.rule
+/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/pico_sdk-subbuild/CMakeFiles/pico_sdk-populate-complete.rule
+/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/pico_sdk-subbuild/pico_sdk-populate-prefix/src/pico_sdk-populate-stamp/pico_sdk-populate-build.rule
+/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/pico_sdk-subbuild/pico_sdk-populate-prefix/src/pico_sdk-populate-stamp/pico_sdk-populate-configure.rule
+/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/pico_sdk-subbuild/pico_sdk-populate-prefix/src/pico_sdk-populate-stamp/pico_sdk-populate-download.rule
+/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/pico_sdk-subbuild/pico_sdk-populate-prefix/src/pico_sdk-populate-stamp/pico_sdk-populate-install.rule
+/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/pico_sdk-subbuild/pico_sdk-populate-prefix/src/pico_sdk-populate-stamp/pico_sdk-populate-mkdir.rule
+/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/pico_sdk-subbuild/pico_sdk-populate-prefix/src/pico_sdk-populate-stamp/pico_sdk-populate-patch.rule
+/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/pico_sdk-subbuild/pico_sdk-populate-prefix/src/pico_sdk-populate-stamp/pico_sdk-populate-test.rule
+/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/pico_sdk-subbuild/pico_sdk-populate-prefix/src/pico_sdk-populate-stamp/pico_sdk-populate-update.rule
