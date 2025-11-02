@@ -3,7 +3,7 @@
 ## 🚀 Initial Setup (DO ONCE)
 
 ```bash
-cd /home/rishi-patil/Desktop/FYP
+cd path/to/your/local/clone   # repo root
 
 # Configure your identity
 git config user.name "Rishi Patil"
@@ -24,8 +24,8 @@ git commit -m "feat: reorganize project structure with comprehensive documentati
 
 All connections verified against openFC2040.json schematic - 100% accurate."
 
-# Push to GitHub (REPLACES old repo!)
-git push -u origin master --force
+# Push to GitHub
+git push -u origin main
 ```
 
 ---
@@ -73,7 +73,7 @@ git commit -m "docs: update PIN_CONNECTIONS with new resistor values"
 
 ### 4. Push to GitHub
 ```bash
-git push origin master
+git push origin main
 ```
 
 ---
@@ -169,10 +169,10 @@ cat ~/.ssh/id_ed25519.pub
 ### Problem: "Updates were rejected"
 ```bash
 # Pull changes from GitHub first
-git pull origin master --rebase
+git pull origin main --rebase
 
 # Then push
-git push origin master
+git push origin main
 ```
 
 ### Problem: Accidentally committed wrong file

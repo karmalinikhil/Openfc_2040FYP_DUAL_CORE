@@ -14,12 +14,12 @@ This directory contains tools and configuration for debugging the OpenFC2040 PX4
 
 1. **Flash Picoprobe Firmware**:
    ```bash
-   # The debugprobe firmware is already built
-   # File: /home/rishi-patil/Desktop/FYP/debugprobe_on_pico2.uf2
+   # The debugprobe firmware is already built in this repo
+   # File: tools/debuggers/debugprobe_on_pico2.uf2
    
    # Put Pico 2 in bootloader mode (hold BOOTSEL + connect USB)
    # Copy firmware to RPI-RP2 drive
-   cp /home/rishi-patil/Desktop/FYP/debugprobe_on_pico2.uf2 /media/$USER/RPI-RP2/
+   cp tools/debuggers/debugprobe_on_pico2.uf2 /media/$USER/RPI-RP2/
    ```
 
 2. **Verify Picoprobe**:
@@ -85,15 +85,15 @@ debug/
 
 1. **Wire hardware** as shown in wiring diagram above
 2. **Connect both boards** via USB (Picoprobe + OpenFC2040)
-3. **Start debug session**:
+3. **Start debug session** (from repo root):
    ```bash
-   cd /home/rishi-patil/Desktop/FYP/rsp_2040
+   cd firmware/openfc2040/rsp_2040
    ./debug/start_debug_session.sh
    ```
 
-4. **Launch GDB** (in another terminal):
+4. **Launch GDB** (in another terminal, from repo root):
    ```bash
-   cd /home/rishi-patil/Desktop/FYP/rsp_2040
+   cd firmware/openfc2040/rsp_2040
    gdb-multiarch -x debug/gdb_init.gdb px4-autopilot/build/raspberrypi_pico_default/raspberrypi_pico_default.elf
    ```
 

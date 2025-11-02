@@ -3,7 +3,7 @@
 **Date**: October 30, 2024  
 **Project**: PX4-based flight controller firmware for custom OpenFC2040 board  
 **Status**: ✅ **BUILD SUCCESSFUL** - Firmware compiled and flashed to board!  
-**Location**: `/home/rishi-patil/Desktop/FYP/rsp_2040`
+**Location**: `firmware/openfc2040/rsp_2040` (from the repository root)
 
 ---
 
@@ -16,7 +16,7 @@ Build custom PX4 Autopilot firmware for the OpenFC2040 flight controller board b
 ## 🏗️ Project Structure
 
 ```
-/home/rishi-patil/Desktop/FYP/rsp_2040/
+firmware/openfc2040/rsp_2040/
 ├── board/                          # OpenFC2040 board configuration
 │   ├── src/
 │   │   ├── board_config.h         # ✅ Main hardware configuration
@@ -158,8 +158,8 @@ Using PX4's **raspberrypi_pico** board as base, customizing only:
 ### Build Commands
 
 ```bash
-# Navigate to project
-cd /home/rishi-patil/Desktop/FYP/rsp_2040
+# Navigate to project (from repo root)
+cd firmware/openfc2040/rsp_2040
 
 # First time setup (downloads PX4, takes 5-10 min)
 ./scripts/setup.sh
@@ -488,14 +488,14 @@ sudo apt install git cmake make arm-none-eabi-gcc python3 python3-empy python3-y
 
 ### Check Build Status
 ```bash
-cd /home/rishi-patil/Desktop/FYP/rsp_2040/px4-autopilot
+cd px4-autopilot
 make list_config_targets | grep pico
 # Should show: raspberrypi_pico[_default]
 ```
 
 ### Clean Build
 ```bash
-cd /home/rishi-patil/Desktop/FYP/rsp_2040
+cd firmware/openfc2040/rsp_2040
 ./scripts/clean.sh
 ./scripts/build.sh all
 ```
@@ -582,7 +582,7 @@ cat px4-autopilot/boards/raspberrypi/pico/src/board_config.h
 **If you need to continue this project later or hand it off:**
 
 1. **Current State**: Build script updated, ready to compile
-2. **Next Command**: `cd /home/rishi-patil/Desktop/FYP/rsp_2040 && ./scripts/build.sh all`
+2. **Next Command**: `cd firmware/openfc2040/rsp_2040 && ./scripts/build.sh all`
 3. **Expected**: Should compile successfully now (source file conflicts resolved)
 4. **If Errors**: Check this document's "Recent Issues & Resolutions" section
 5. **After Build**: Follow "Next Steps" section above
@@ -714,7 +714,7 @@ sensors status       # Show all detected sensors
 - `DIAGNOSIS_SUMMARY.md` - Detailed USB console issue analysis
 - `TESTING_STATUS.md` - Testing procedures
 - `/peripherals_testing/` - ✅ **Working test firmware** (reference implementation)
-- `/home/rishi-patil/Desktop/FYP/picoprobe/` - **NEW** clone for building RP2350 Picoprobe debugger firmware
+- `tools/debuggers/picoprobe/` - Picoprobe (debug firmware sources and builds)
 
 **New Strategy**: Incrementally adapt PX4 to match the proven-working peripherals_testing configuration (using dedicated SWD header for low-level debugging)
 
@@ -729,7 +729,7 @@ sensors status       # Show all detected sensors
 
 ### Flash Original Firmware Test
 
-**File to flash**: `/home/rishi-patil/Desktop/FYP/rsp_2040/px4-autopilot/build/raspberrypi_pico_default/raspberrypi_pico_default_ORIGINAL.uf2`
+**File to flash**: `px4-autopilot/build/raspberrypi_pico_default/raspberrypi_pico_default_ORIGINAL.uf2`
 
 **Steps**:
 1. Hold BOOTSEL button on board

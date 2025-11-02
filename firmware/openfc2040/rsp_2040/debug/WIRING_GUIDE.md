@@ -65,7 +65,7 @@
 1. **Flash Debugprobe Firmware** (if not already done):
    ```bash
    # Put Pico 2 in bootloader mode (hold BOOTSEL, connect USB)
-   cp /home/rishi-patil/Desktop/FYP/debugprobe_on_pico2.uf2 /media/$USER/RPI-RP2/
+   cp tools/debuggers/debugprobe_on_pico2.uf2 /media/$USER/RPI-RP2/
    # Wait for reboot
    ```
 
@@ -133,7 +133,7 @@ Pin 4: 3V3    ○───  (Optional - may not be present)
 ### Step 5: Test Connection
 
 ```bash
-cd /home/rishi-patil/Desktop/FYP/rsp_2040
+cd firmware/openfc2040/rsp_2040
 ./debug/start_debug_session.sh
 ```
 
@@ -173,7 +173,7 @@ Debug Session Ready
 1. Re-flash Picoprobe firmware:
    ```bash
    # Hold BOOTSEL on Pico 2, connect USB
-   cp /home/rishi-patil/Desktop/FYP/debugprobe_on_pico2.uf2 /media/$USER/RPI-RP2/
+   cp tools/debuggers/debugprobe_on_pico2.uf2 /media/$USER/RPI-RP2/
    ```
 2. Try different USB port
 3. Check USB cable (must be data cable, not charge-only)
@@ -194,7 +194,7 @@ Debug Session Ready
    - Try connecting VTREF (3V3 wire)
 
 3. **Lower SWD speed**:
-   - Edit `/home/rishi-patil/Desktop/FYP/rsp_2040/debug/openocd_rp2040.cfg`
+   - Edit `firmware/openfc2040/rsp_2040/debug/openocd_rp2040.cfg`
    - Change `adapter speed 2000` to `adapter speed 1000` or `500`
 
 4. **Power cycle**:
@@ -247,7 +247,7 @@ sudo udevadm trigger
 
 2. Check OpenOCD log:
    ```bash
-   cat /home/rishi-patil/Desktop/FYP/rsp_2040/debug/openocd.log
+   cat firmware/openfc2040/rsp_2040/debug/openocd.log
    ```
 
 3. Firewall blocking port 3333?

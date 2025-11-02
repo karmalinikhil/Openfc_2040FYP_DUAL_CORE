@@ -22,7 +22,7 @@ Before making ANY changes, read:
 
 - [Getting Started](#getting-started)```bash
 
-- [Git Workflow](#git-workflow)cat firmware/openfc2040/docs/development/NEXT_STEPS.md
+- [Git Workflow](#git-workflow) `cat docs/NEXT_STEPS.md`
 
 - [Code Standards](#code-standards)```
 
@@ -60,7 +60,8 @@ Before contributing, ensure you have:
 
    - CMake, Ninja# 1. Start your day: Get latest changes
 
-   - Python 3.xcd /home/rishi-patil/Desktop/FYP
+        - Python 3.x
+        - From repo root: `cd path/to/your/local/clone`
 
    - Gitgit pull origin main
 
@@ -94,7 +95,7 @@ git submodule update --init --recursive
 
 # 5. Update NEXT_STEPS.md (REQUIRED!)
 
-If working from remote repository:nano docs/development/NEXT_STEPS.md
+If working from remote repository: `nano docs/NEXT_STEPS.md`
 
 # Add your work to "Most Recent Work" section
 
@@ -270,7 +271,7 @@ git add firmware/openfc2040/rsp_2040/board/board_config.h## 🎯 NEXT_STEPS.md U
 
 git commit -m "fix: correct battery voltage divider to 5.09:1
 
-**Location**: `firmware/openfc2040/docs/development/NEXT_STEPS.md`
+**Location**: `docs/NEXT_STEPS.md`
 
 - Update BOARD_BATTERY_V_DIV from 1.74 to 5.09
 

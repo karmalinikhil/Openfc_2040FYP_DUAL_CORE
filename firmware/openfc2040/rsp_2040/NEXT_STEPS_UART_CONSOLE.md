@@ -44,7 +44,7 @@ GND     ─────────────  GND (Pin 3, 8, 13, 18, 23, 28, 
 
 Your UART console firmware is ready:
 ```
-File: /home/rishi-patil/Desktop/FYP/rsp_2040/raspberrypi_pico_minimal_UART.uf2
+File: firmware/openfc2040/rsp_2040/raspberrypi_pico_minimal_UART.uf2
 Size: 1,099,184 bytes (52.41% flash, 6.44% RAM)
 Config: Minimal PX4, UART console on GPIO0/1 @ 115200 baud
 ```
@@ -58,8 +58,8 @@ Config: Minimal PX4, UART console on GPIO0/1 @ 115200 baud
 
 2. **Flash firmware:**
    ```bash
-   # Board appears as /media/rishi-patil/RPI-RP2
-   cp /home/rishi-patil/Desktop/FYP/rsp_2040/raspberrypi_pico_minimal_UART.uf2 /media/rishi-patil/RPI-RP2/
+   # Board appears as /media/$USER/RPI-RP2
+   cp firmware/openfc2040/rsp_2040/raspberrypi_pico_minimal_UART.uf2 /media/$USER/RPI-RP2/
    ```
    - Board will reboot automatically
 
