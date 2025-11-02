@@ -14,7 +14,14 @@
 - [Which Files Are Involved](#which-files-are-involved)
 - [Current Project Status](#current-project-status)
 - [Architecture Overview](#architecture-overview)
+- [PX4 Firmware Port Overview](#px4-firmware-port-overview)
+- [Build and Flash Workflow](#build-and-flash-workflow)
+- [Flashing Methods](#flashing-methods)
+- [Hardware Bring-up Checklist](#hardware-bring-up-checklist)
+- [Peripheral Test Firmware](#peripheral-test-firmware)
+- [Sensor Calibration Workflow](#sensor-calibration-workflow)
 - [Next Milestones](#next-milestones)
+- [FAQs](#faqs)
 
 ---
 
@@ -400,6 +407,182 @@ CONFIG_FS_ROMFS=y                          # Enable ROMFS for startup scripts
    - User can interact via UART console
    - Can start/stop modules
    - Can test peripherals
+
+---
+
+## PX4 Firmware Port Overview
+
+- Location: `firmware/openfc2040/rsp_2040/`
+- Purpose: Maintains the PX4 board support package for the OpenFC2040 flight controller (RP2040 + PX4 stack).
+- Highlights:
+  - Uses the PX4 upstream submodule (`px4-autopilot/`) with the custom board configuration under `board/rsp_2040/`.
+  - Sensors: LSM6DS3TR-C IMU (SPI1), DPS310 barometer (SPI1), optional GPS via UART1, RGB status LED, PWM ESC outputs, SD logging, RC input, battery monitoring.
+  - Scripts: `scripts/setup.sh`, `scripts/build.sh`, `scripts/flash.sh`, `scripts/clean.sh` manage setup, builds, flashing, and cleanup.
+  - Documentation historically living alongside this firmware has been consolidated into this document and `docs/README.md`.
+
+### Repository Structure Recap
+
+```
+rsp_2040/
+├── board/                 # Board configuration and startup scripts
+├── drivers/               # Board-specific driver extensions (add new ones here)
+├── px4-autopilot/         # PX4 upstream submodule (leave unmodified)
+├── scripts/               # Build/flash utilities
+├── configs/               # Default parameter sets
+└── docs/                  # Legacy firmware docs (content summarised in this file)
+```
+
+---
+
+## Build and Flash Workflow
+
+Run all commands from the repository root.
+
+```bash
+# One-time setup (installs dependencies, syncs submodules)
+./scripts/setup_workspace.sh
+
+# Build PX4 firmware
+cd firmware/openfc2040
+./scripts/build.sh
+
+# Optional: clean rebuild
+./scripts/build.sh clean
+./scripts/build.sh
+```
+
+Flash using the helper script (board in BOOTSEL mode):
+
+```bash
+./scripts/flash.sh
+```
+
+Key outputs are written to `px4-autopilot/build/rsp_2040_default/`:
+
+| File | Purpose |
+|------|---------|
+| `rsp_2040_default.uf2` | Drag-and-drop firmware for RP2040 bootloader |
+| `rsp_2040_default.bin` | Raw binary image |
+| `rsp_2040_default.elf` | Firmware with debug symbols (use with GDB) |
+
+---
+
+## Flashing Methods
+
+1. **Automated UF2 Copy (Recommended)**
+   - Run `./scripts/flash.sh`. Script detects BOOTSEL drive, copies UF2, and verifies.
+
+2. **Manual UF2 Flash**
+   ```bash
+   cp px4-autopilot/build/rsp_2040_default/rsp_2040_default.uf2 /media/$USER/RPI-RP2/
+   ```
+   - Steps: hold BOOTSEL, connect USB, copy UF2, board reboots automatically.
+
+3. **Picotool**
+   ```bash
+   sudo picotool load -r px4-autopilot/build/rsp_2040_default/rsp_2040_default.uf2
+   ```
+   - Requires `picotool` from Raspberry Pi tooling; useful for scripting and flashing without mounting drives.
+
+4. **OpenOCD (SWD)**
+   ```bash
+   openocd -f interface/picoprobe.cfg -f target/rp2040.cfg \
+     -c "adapter speed 5000" \
+     -c "program px4-autopilot/build/rsp_2040_default/rsp_2040_default.elf verify reset exit"
+   ```
+   - Use when SWD debugger is connected (Picoprobe/Debugprobe). Enables flashing and immediate debugging.
+
+Prerequisites for all methods: toolchain installed (`gcc-arm-none-eabi`, `cmake`, `ninja`, `python3`, `openocd`, `gdb-multiarch`, `picotool` when required).
+
+---
+
+## Hardware Bring-up Checklist
+
+Perform these tests after flashing firmware to confirm hardware is responsive. Always remove propellers during bench testing.
+
+1. **Console Access**
+   - Connect USB-to-Serial adapter (adapter TX → GPIO1, RX → GPIO0, common GND).
+   - Open terminal: `picocom -b 115200 /dev/ttyUSB0`.
+   - Expect NSH prompt (`nsh>`). If USB console is required, consult [DEBUG_GUIDE.md](DEBUG_GUIDE.md).
+
+2. **RGB LED**
+   ```bash
+   nsh> led_control test
+   ```
+   - Confirms active-low LED wiring on GPIO13-15.
+
+3. **PWM Outputs**
+   ```bash
+   nsh> pwm test
+   ```
+   - Check PWM pulses on GPIO20-23 with scope or servo tester.
+
+4. **Barometer**
+   ```bash
+   nsh> dps310 start
+   nsh> dps310 status
+   nsh> listener sensor_baro
+   ```
+   - Validates SPI1 chip select, shared bus timing, and pressure readings.
+
+5. **SD Card Logging**
+   - Insert FAT32 microSD, run `nsh> sd_bench` to verify throughput.
+
+6. **RC Input**
+   ```bash
+   nsh> input_rc status
+   ```
+   - Confirm signal on GPIO24 (PPM/SBUS). Adjust hardware inverter requirements as necessary.
+
+7. **Battery Monitoring**
+   - Before attaching 4S LiPo, confirm divider values in `board/board_config.h` match schematic to prevent ADC damage.
+
+Document outcomes in `docs/NEXT_STEPS.md` after each session.
+
+---
+
+## Peripheral Test Firmware
+
+- Location: `firmware/test-firmware/peripherals_testing/`
+- Purpose: Stand-alone Pico SDK firmware for validating sensors and peripherals prior to PX4 integration.
+- Features:
+  - UART console at 115200 baud with interactive commands (`help`, `imu`, `baro`, `live`, `beep`).
+  - Software SPI implementation for LSM6DS3 and DPS310.
+  - LED, buzzer, PWM, and GPS smoke tests.
+- Build/flash scripts: `scripts/build.sh`, `scripts/flash.sh` (wrapper around Pico SDK CMake build).
+- Use cases:
+  - Hardware verification without PX4.
+  - Capturing raw sensor behaviour before porting drivers into PX4.
+
+---
+
+## Sensor Calibration Workflow
+
+Applies to the peripheral test firmware (`src/main.c`). Calibration constants live at the top of the file under the `SENSOR CALIBRATION CONSTANTS` banner.
+
+1. **View Existing Constants**
+   - Run `calib` command via UART to display current offsets.
+
+2. **IMU Offsets**
+   - Adjust `IMU_ACCEL_OFFSET_*` and `IMU_GYRO_OFFSET_*` constants in `src/main.c` when accelerometer or gyro shows bias while stationary.
+   - Rebuild and flash, then retest with `imu` or `live` commands.
+
+3. **Barometer Calibration**
+   - Modify `BARO_TEMP_BASELINE_OFFSET`, `BARO_TEMP_FINE_TUNE`, `BARO_PRESS_BASELINE_OFFSET`, and `BARO_PRESS_FINE_TUNE` in `src/main.c` to align with measured ambient temperature and pressure.
+   - Use local weather station or calibrated thermometer as reference.
+
+4. **Workflow**
+   ```bash
+   ./scripts/build.sh
+   ./scripts/flash.sh
+   picocom -b 115200 /dev/ttyUSB0
+   ```
+   - Iterate until readings match references (temperature within ±1 °C, pressure within ±50 Pa, accelerometer ~9.8 m/s² on Z).
+
+5. **Documentation**
+   - Record changes and results in `docs/NEXT_STEPS.md` so future contributors know the calibration state.
+
+Calibration for PX4 proper should use the `commander calibrate` workflows once board bring-up is complete.
 
 ---
 
