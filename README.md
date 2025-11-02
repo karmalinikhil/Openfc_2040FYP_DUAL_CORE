@@ -1,22 +1,10 @@
-# OpenFC2040 Flight Controller Development# OpenFC2040 Flight Controller Development - Final Year Project
-
-
-
-**Open-source PX4 Autopilot on RP2040 MCU****Project**: Custom PX4-based Flight Controller for RP2040 Microcontroller  
-
-**Board**: OpenFC2040 (Designed by Vatsal Joshi)  
-
-> 🎓 **Final Year Project**: Custom flight controller firmware development  **Status**: ✅ Firmware builds successfully, UART console configured  
-
-> 🔧 **Hardware**: OpenFC2040 by [@vxj9800](https://github.com/vxj9800/openFC2040)  **Last Updated**: 2024-11-01
-
-> 🚁 **Firmware**: PX4 Autopilot v1.17.0-alpha1 on NuttX RTOS
+# OpenFC2040 Flight Controller Firmware Development
+> **Hardware**: OpenFC2040 by [@vxj9800](https://github.com/vxj9800/openFC2040)  
+> **Firmware**: PX4 Autopilot v1.17.0-alpha1 on NuttX RTOS
 
 ---
 
----
-
-## 🎯 Project Overview
+# 🎯 Project Overview
 
 ## 📖 Table of Contents
 
@@ -24,139 +12,22 @@ This repository contains the complete development workspace for creating PX4 Aut
 
 - [Project Overview](#project-overview)
 
-- [Quick Navigation](#quick-navigation)**What is this?** (For beginners)
+- [Quick Navigation](#quick-navigation)**What is this project about?**
+  
+- [Getting Started](#getting-started)- **OpenFC2040** -> Custom circuit board with RP2040 chip + Sensors for flying drones.
 
-- [Getting Started](#getting-started)- **OpenFC2040** = Custom circuit board with RP2040 chip + sensors for flying drones
+- [Hardware Setup](#hardware-setup)- **PX4 Firmware** -> Software that runs on the board to control flight.
 
-- [Hardware Setup](#hardware-setup)- **PX4 Firmware** = Software that runs on the board to control flight
-
-- [Configuration](#configuration)- **This Project** = Building custom PX4 firmware that works with OpenFC2040 hardware
+- [Configuration](#configuration)- **This Project** -> Building custom PX4 firmware that works with OpenFC2040 hardware.
 
 - [Troubleshooting](#troubleshooting)
 
-- [Contributing](#contributing)---
+- [Contributing](#contributing)
 
 - [Project Status](#project-status)
 
-## 📁 Repository Structure
-
 ---
-
-```
-
-## 🎯 Project OverviewFYP/
-
-├── README.md                          ← You are here
-
-This project brings **PX4 Autopilot** to the **Raspberry Pi RP2040** microcontroller using the **OpenFC2040** custom flight controller board.├── QUICK_START.md                     ← Start here for setup
-
-├── CONTRIBUTING.md                    ← Team collaboration guide
-
-### Key Features│
-
-├── firmware/                          📱 Firmware Development
-
-- ✅ **Sensors**: LSM6DS3 IMU (6-axis), DPS310 Barometer│   ├── openfc2040/                   ← Main PX4 firmware project
-
-- ✅ **Storage**: MicroSD card, 16MB SPI Flash (W25Q128JV)│   │   ├── README.md                 ← Firmware-specific documentation
-
-- ✅ **Communication**: USB, UART telemetry, GPS port│   │   ├── px4-autopilot/            ← PX4 source code
-
-- ✅ **Outputs**: 4x PWM ESC, RC input, RGB LED│   │   ├── board/                    ← OpenFC2040 board configuration
-
-- ✅ **Debugging**: SWD interface│   │   ├── drivers/                  ← Custom drivers
-
-- ✅ **Power**: Battery voltage/current monitoring│   │   ├── scripts/                  ← Build/flash automation
-
-│   │   └── docs/                     ← Technical documentation
-
----│   │
-
-│   ├── test-firmware/                ← Peripheral testing firmware
-
-## 🗂️ Quick Navigation│   │   └── peripherals_testing/      ← Pico SDK test code
-
-│   │
-
-### Directory Structure│   └── builds/                       ← Compiled firmware (.uf2 files)
-
-│
-
-```├── hardware/                          🔧 Hardware Documentation
-
-FYP/│   ├── openfc2040-design/            ← Original board design files
-
-├── README.md                      ← You are here│   ├── schematics/                   ← Circuit schematics
-
-├── CONTRIBUTING.md                ← Git workflow & collaboration│   ├── datasheets/                   ← Component datasheets
-
-├── firmware/│   ├── bom/                          ← Bill of materials
-
-│   ├── openfc2040/               ← Main PX4 firmware│   └── openfc2040_pinout.txt         ← Pin assignments
-
-│   └── test-firmware/            ← Peripheral tests│
-
-├── hardware/├── tools/                             🛠️ Development Tools
-
-│   ├── openfc2040-official/      ← Hardware repo (vxj9800)│   ├── debuggers/                    ← SWD debugger tools
-
-│   └── openfc2040-design/        ← Local hardware files│   │   ├── debugprobe/               ← Picoprobe firmware
-
-├── tools/│   │   ├── picoprobe/                ← Alternative debugger
-
-│   ├── debuggers/                ← Picoprobe, OpenOCD│   │   └── openocd_configs/          ← OpenOCD configurations
-
-│   └── utilities/                ← Picotool│   │
-
-├── docs/                          ← Start here!│   └── utilities/                    ← Helper utilities
-
-│   ├── PROJECT_CONTEXT.md        ← Architecture & build explained│       └── picotool/                 ← RP2040 flash utility
-
-│   ├── PIN_CONNECTIONS.md        ← Complete GPIO mapping│
-
-│   ├── NEXT_STEPS.md             ← Current status├── testing/                           🧪 Testing & Validation
-
-│   ├── DEBUG_GUIDE.md            ← SWD debugging│   ├── bench-tests/                  ← Hardware bench tests
-
-│   └── CONTRIBUTING.md           ← How to collaborate│   └── results/                      ← Test results & logs
-
-├── testing/                       ← Test procedures│
-
-└── scripts/                       ← Automation├── docs/                              📚 Documentation
-
-```│   ├── README.md                     ← Documentation index
-
-│   ├── PROJECT_STATUS.md             ← Current project state
-
-### Essential Reading (In Order)│   ├── ARCHITECTURE.md               ← System architecture
-
-│   │
-
-1. **This README** - Project overview and quick start│   ├── getting-started/              ← New user guides
-
-2. [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md) - **Read this to understand the build process!**│   ├── hardware/                     ← Hardware documentation
-
-3. [`docs/PIN_CONNECTIONS.md`](docs/PIN_CONNECTIONS.md) - GPIO mappings│   ├── development/                  ← Developer guides
-
-4. [`docs/DEBUG_GUIDE.md`](docs/DEBUG_GUIDE.md) - Debugging setup│   ├── testing/                      ← Testing procedures
-
-5. [`docs/NEXT_STEPS.md`](docs/NEXT_STEPS.md) - What to do next│   └── reference/                    ← Technical references
-
-6. [`CONTRIBUTING.md`](CONTRIBUTING.md) - Git workflow│
-
-└── scripts/                           ⚙️ Automation Scripts
-
----    ├── setup_workspace.sh            ← First-time setup
-
-    ├── build_all.sh                  ← Build all projects
-
-## 🚀 Getting Started    └── clean_all.sh                  ← Clean build artifacts
-
-```
-
 ### Prerequisites (Linux)
-
----
 
 Install ARM toolchain and build tools:
 
@@ -164,45 +35,33 @@ Install ARM toolchain and build tools:
 
 ```bash
 
-# ARM cross-compiler### For New Users (First Time Setup)
-
+# ARM cross-compiler, For New Users (First Time Setup)
 sudo apt update
-
 sudo apt install gcc-arm-none-eabi**Prerequisites**: Linux (Ubuntu 20.04+ recommended)
 
-
-
-# Build tools```bash
-
-sudo apt install cmake ninja-build git python3 python3-pip# 1. Navigate to FYP directory
-
-cd /home/rishi-patil/Desktop/FYP
+# Build tools
+sudo apt install cmake ninja-build git python3 python3-pip
+cd /to/project/directory/OpenFC2040_FYP
 
 # PX4 dependencies
-
 pip3 install --user pyros-genmsg setuptools empy toml numpy packaging jinja2 jsonschema# 2. Read the quick start guide
-
 sudo apt install genromfs kconfig-frontendscat QUICK_START.md
 
-
-
-# Debugging tools (optional)# 3. Run workspace setup
-
+# Debugging tools (optional), Run workspace setup
 sudo apt install openocd gdb-multiarch./scripts/setup_workspace.sh
 
-
-
-# Serial terminal# 4. Build firmware
-
+# Serial terminal, Build firmware
 sudo apt install picocomcd firmware/openfc2040
-
-sudo usermod -aG dialout $USER  # Log out and back in./scripts/build.sh
+sudo usermod -aG dialout $USER  # Log out and back in
+./scripts/build.sh
 
 ```
 
 # 5. Flash to board
-
-**What each tool does**: See [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md)./scripts/flash.sh
+**What each tool does**: See [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md)
+```
+./scripts/flash.sh
+```
 
 ```
 
@@ -212,7 +71,7 @@ sudo usermod -aG dialout $USER  # Log out and back in./scripts/build.sh
 
 ```bash
 
-cd ~/Desktop/FYP/firmware/openfc2040/rsp_2040### For Returning Users
+cd ~/to/project/folder/OpenFC2040_FYP/firmware/openfc2040/rsp_2040
 
 
 
