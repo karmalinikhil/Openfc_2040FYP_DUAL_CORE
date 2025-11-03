@@ -63,6 +63,4 @@ picocom -b 115200 /dev/ttyUSB0
 
 ## License and Credits
 - PX4 Autopilot: BSD-3-Clause; NuttX: Apache-2.0
-- Hardware design: OpenFC2040 by Vatsal Joshi (vxj9800)
-
-Happy building!
+- Hardware design: OpenFC2040 by Vatsal Joshi (@vxj9800)
