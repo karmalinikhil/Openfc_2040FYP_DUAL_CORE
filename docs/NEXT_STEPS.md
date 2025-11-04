@@ -24,27 +24,35 @@ This document tracks:
 
 ## 📝 What Was Done Last
 
-**Session Date**: November 1, 2025
+**Session Date**: November 4, 2025
 
 ### Completed Tasks
 
-1. ✅ **Workspace Reorganization**
+1. ✅ **Documentation Consolidation**
+   - Merged scattered .md files from `firmware/` and `hardware/` into `docs/` folder
+   - Updated `docs/README.md` with comprehensive navigation hub
+   - Expanded `docs/PROJECT_CONTEXT.md` with firmware port overview, build workflows, flashing methods
+   - Integrated hardware bring-up checklist, peripheral test firmware guide, and calibration workflow
+   - Cleaned up `CONTRIBUTING.md` for clearer collaboration guidelines
+   - Committed and pushed changes to main branch (commit: 1a7f970b)
+
+2. ✅ **Workspace Reorganization** *(Previous session)*
    - Moved all projects to professional structure
    - Created firmware/, hardware/, tools/, docs/, testing/ directories
    - All functionality verified working after reorganization
 
-2. ✅ **Essential Documentation Created**
+3. ✅ **Essential Documentation Created** *(Previous session)*
    - `README.md`: Complete project overview with beginner-friendly setup guide
    - `docs/PROJECT_CONTEXT.md`: Detailed build process explanation (addresses "single file" misconception)
    - `docs/PIN_CONNECTIONS.md`: Complete GPIO mapping from hardware review
    - Removed 15+ unnecessary markdown files from development
 
-3. ✅ **Hardware Repository Cloned**
+4. ✅ **Hardware Repository Cloned** *(Previous session)*
    - Cloned official openFC2040 repo: git@github.com:vxj9800/openFC2040.git
    - Location: `hardware/openfc2040-official/`
    - Reviewed BOM, identified all components
 
-4. ✅ **UART Console Configuration**
+5. ✅ **UART Console Configuration** *(Previous session)*
    - Built minimal firmware with UART console: `raspberrypi_pico_minimal_UART.uf2`
    - Size: 1.1 MB (52.41% flash, 6.44% SRAM)
    - Console on GPIO0/GPIO1, 115200 baud
@@ -52,14 +60,14 @@ This document tracks:
 
 ### Issues Encountered
 
-1. **USB Console Unusable**:
+1. **USB Console Unusable** *(Previous session)*:
    - Tested both configurations (CONFIG_DEV_CONSOLE enabled/disabled)
    - Result: Garbled output on /dev/ttyACM0
    - Root cause: NuttX USB CDC-ACM driver unreliable on RP2040
    - Solution: Use UART console (industry standard)
    - Documented in: `firmware/openfc2040/rsp_2040/USB_CONSOLE_INVESTIGATION.md`
 
-2. **Battery Voltage Divider Concerns**:
+2. **Battery Voltage Divider Concerns** *(Previous session)*:
    - Current firmware config: `BOARD_BATTERY_V_DIV = 1.74` (max 5.74V)
    - From BOM: R3=27.4Ω, R4=27.4Ω (need to verify circuit)
    - **Problem**: 4S LiPo max = 16.8V, will exceed 3.3V ADC limit!
@@ -71,16 +79,88 @@ This document tracks:
 
 ### Priority 1: BLOCKING (Do First!)
 
-#### 1. Complete Remaining Documentation
-**Status**: In Progress (2 of 3 done)  
-**Time**: 2-3 hours  
-**Assigned**: Development team
+#### 1. Connect JST-GH6 Telemetry Port
+**Status**: IN PROGRESS  
+**Time**: 1-2 hours  
+**Session Date**: November 4, 2025
 
-**Still needed**:
-- [ ] `docs/DEBUG_GUIDE.md` - Complete SWD debugging setup instructions
-- [ ] `CONTRIBUTING.md` - Git workflow for remote collaboration
+**Objective**: Access UART telemetry pins via JST-GH 6-pin connector to enable debugging console.
 
-**Why this blocks**: Team members can't contribute effectively without these docs.
+**Hardware Required**:
+- JST-GH 6-pin connector (SM06B-GHS-TB) or breakout cable
+- USB-to-Serial adapter (FTDI FT232RL, CP2102, or CH340G)
+- Jumper wires (if using breakout)
+
+**Telemetry Port Pinout** (from `docs/PIN_CONNECTIONS.md`):
+
+| Pin | Signal | GPIO | Direction | Voltage | Purpose |
+|-----|--------|------|-----------|---------|---------|
+| 1 | GND | - | - | 0V | Common ground |
+| 2 | TX | GPIO0 | Output | 3.3V | Board transmits to adapter RX |
+| 3 | RX | GPIO1 | Input | 3.3V | Board receives from adapter TX |
+| 4 | SDA/CTS | GPIO2 | Bidir | 3.3V | Optional I2C or flow control |
+| 5 | SCL/RTS | GPIO3 | Bidir | 3.3V | Optional I2C or flow control |
+| 6 | +5V | - | Power | 5V | Power output (from VBUS/Battery) |
+
+**Wiring Diagram**:
+```
+OpenFC2040 Telemetry (JST-GH6)          USB-Serial Adapter
+================================        ==================
+Pin 1: GND       ------------------>    GND
+Pin 2: TX (GPIO0) ----------------->    RX
+Pin 3: RX (GPIO1) ----------------->    TX
+Pin 4: SDA/CTS    (leave disconnected for basic console)
+Pin 5: SCL/RTS    (leave disconnected for basic console)
+Pin 6: +5V        (DO NOT CONNECT - adapter has own power)
+```
+
+**Steps**:
+1. **Identify JST-GH6 connector** on OpenFC2040 board (labeled "TELEM" or "UART0")
+2. **Option A - Breakout cable**:
+   - Use JST-GH to Dupont breakout cable
+   - Connect individual wires to USB-Serial adapter
+3. **Option B - Direct solder**:
+   - Solder thin wires directly to JST-GH pads (Pin 1, 2, 3)
+   - Use heat shrink or electrical tape for insulation
+4. **Connect USB-Serial adapter**:
+   - Adapter GND → Pin 1 (GND)
+   - Adapter RX → Pin 2 (TX/GPIO0)
+   - Adapter TX → Pin 3 (RX/GPIO1)
+   - **Do NOT connect +5V pin** (avoid ground loops)
+5. **Verify connections** with multimeter:
+   - Check continuity between adapter GND and board GND
+   - Ensure no shorts between TX/RX pins
+6. **Power on OpenFC2040** (via USB or battery)
+7. **Connect adapter** to PC via USB
+8. **Open serial terminal**:
+   ```bash
+   picocom -b 115200 /dev/ttyUSB0 --imap lfcrlf
+   ```
+   or
+   ```bash
+   screen /dev/ttyUSB0 115200
+   ```
+
+**Expected Result**:
+- NSH prompt appears: `nsh>`
+- No garbled characters
+- Commands respond (try `help`, `ver`, `free`)
+
+**Success Criteria**:
+- [ ] JST-GH6 connector accessible via breakout or direct wiring
+- [ ] USB-Serial adapter connected to GPIO0 (TX) and GPIO1 (RX)
+- [ ] Clean console output in terminal (115200 baud, 8N1)
+- [ ] NSH shell responds to commands
+- [ ] Connection stable for extended debugging sessions
+
+**Blockers**:
+- None (hardware in hand)
+
+**Next After This**:
+- Run hardware peripheral tests (LED, PWM, sensors)
+- Continue with barometer/IMU driver debugging
+
+---
 
 #### 2. Hardware BOM Deep Review
 **Status**: Started (BOM cloned, needs analysis)  
@@ -102,28 +182,15 @@ This document tracks:
 - All component specifications documented
 - Firmware config matches hardware
 
-#### 3. Acquire USB-to-Serial Adapter
-**Status**: Not started (BLOCKING all testing)  
-**Time**: 1-2 days (shipping)  
-**Cost**: $3-10
-
-**Options**:
-- FTDI FT232RL (~$8) - Most reliable
-- CP2102 (~$4) - Good budget option
-- CH340G (~$2) - Cheapest, may need driver
-
-**Vendor**: Amazon Prime (next-day) or local electronics store
-
-**Once acquired**: Wire TX→GPIO1, RX→GPIO0, GND→GND
-
----
-
-### Priority 2: Testing & Verification
-
-#### 4. UART Console Verification
-**Status**: Ready to test (firmware built, waiting for adapter)  
+#### 3. UART Console Verification (Depends on Task #1)
+**Status**: Ready to test (once JST-GH6 connected)  
 **Time**: 30 minutes  
-**Depends on**: Task #3 (USB-Serial adapter)
+**Depends on**: Task #1 (JST-GH6 telemetry connection)
+
+**Prerequisites**:
+- JST-GH6 breakout or direct wiring complete
+- USB-Serial adapter connected
+- Firmware flashed: `firmware/openfc2040/rsp_2040/raspberrypi_pico_minimal_UART.uf2`
 
 **Steps**:
 1. Wire adapter to OpenFC2040:
@@ -146,10 +213,14 @@ This document tracks:
 - All commands respond correctly
 - Boot log shows no critical errors
 
-#### 5. Hardware Peripheral Tests
+---
+
+### Priority 2: Testing & Verification
+
+#### 4. Hardware Peripheral Tests (Depends on Task #3)
 **Status**: Not started  
 **Time**: 4-6 hours  
-**Depends on**: Task #4 (UART console working)
+**Depends on**: Task #3 (UART console working)
 
 **Test sequence**:
 
@@ -193,10 +264,10 @@ This document tracks:
 
 **Success criteria**:
 - All peripherals respond without errors
-- Sensor data looks reasonable
+- All sensor data looks reasonable
 - No hardware faults in dmesg
 
-#### 6. Fix Battery Voltage Divider
+#### 5. Fix Battery Voltage Divider
 **Status**: Identified as critical issue  
 **Time**: 2-3 hours  
 **Priority**: CRITICAL (risk of ADC damage)
@@ -228,14 +299,12 @@ This document tracks:
 - 16.8V input reads correctly
 - No ADC saturation
 
----
-
 ### Priority 3: Driver Development
 
-#### 7. Port LSM6DS3 IMU Driver
+#### 6. Port LSM6DS3 IMU Driver
 **Status**: Not started  
 **Time**: 6-8 hours  
-**Depends on**: Task #4 (console working)
+**Depends on**: Task #3 (console working)
 
 **Source**: `firmware/test-firmware/peripherals_testing/src/main.c` (working driver)
 
@@ -260,10 +329,10 @@ This document tracks:
 - `listener sensor_accel` shows ~9.8 m/s² gravity
 - `listener sensor_gyro` shows ~0 when stationary
 
-#### 8. Verify All Sensors
+#### 7. Verify All Sensors
 **Status**: Not started  
 **Time**: 2-3 hours  
-**Depends on**: Task #7 (IMU driver)
+**Depends on**: Task #6 (IMU driver)
 
 **Test each sensor**:
 - IMU (LSM6DS3): Gyro + Accelerometer
@@ -278,11 +347,9 @@ nsh> commander calibrate gyro
 nsh> commander calibrate baro
 ```
 
----
-
 ### Priority 4: System Integration
 
-#### 9. MAVLink Telemetry Test
+#### 8. MAVLink Telemetry Test
 **Status**: Not started  
 **Time**: 2-3 hours  
 **Depends on**: All sensors working
@@ -296,7 +363,7 @@ nsh> commander calibrate baro
 3. Connect QGroundControl on PC
 4. Verify all sensor data visible
 
-#### 10. Full Integration Test
+#### 9. Full Integration Test
 **Status**: Not started  
 **Time**: 4-6 hours  
 **Depends on**: All above tasks complete
@@ -318,22 +385,34 @@ nsh> commander calibrate baro
 
 ## 🚧 Current Blockers
 
-### Blocking All Testing
-1. **No USB-to-Serial Adapter**
-   - Impact: Cannot access UART console
-   - Cannot test firmware on hardware
-   - Cannot verify peripherals
-   - **Resolution**: Purchase adapter ($3-10, 1-2 days)
+### Active Work
+1. **JST-GH6 Telemetry Connection (IN PROGRESS)**
+   - Status: Currently connecting JST-GH6 to USB adapter
+   - Impact: Once complete, will enable UART console access
+   - **Resolution**: In progress - Session Date: November 4, 2025
+   - **Next**: Test console connection, then proceed to peripheral tests
+
+### Blocking Testing (Until Console Access)
+2. **Hardware Peripheral Tests**
+   - Impact: Cannot test LED, PWM, sensors without console
+   - Cannot verify firmware is running correctly
+   - **Resolution**: Blocked on Task #1 (JST-GH6 connection)
+
+### Blocking All Testing (Previous - resolved with JST-GH6 approach)
+~~1. **No USB-to-Serial Adapter**~~
+   - **Update**: Using JST-GH6 telemetry port instead
+   - JST-GH6 provides direct access to UART0 (GPIO0/GPIO1)
+   - No separate adapter needed if using breakout cable
 
 ### Critical Safety Issues
-2. **Battery Voltage Divider Incorrect**
+3. **Battery Voltage Divider Incorrect**
    - Impact: Risk of ADC damage from overvoltage
    - Cannot safely connect 4S LiPo battery
    - **Resolution**: Review schematic, calculate correct divider ratio
    - **Priority**: CRITICAL - do before battery testing!
 
 ### Missing Drivers
-3. **LSM6DS3 IMU Driver Not Ported**
+4. **LSM6DS3 IMU Driver Not Ported**
    - Impact: No gyro/accelerometer data
    - Cannot run attitude estimation
    - Cannot fly without IMU
@@ -366,9 +445,9 @@ nsh> commander calibrate baro
 ## 📅 Milestones
 
 ### Milestone 1: Console Access ⏳
-**Target**: November 3, 2025  
-**Status**: 60% complete (firmware ready, waiting on hardware)  
-**Blockers**: USB-Serial adapter purchase
+**Target**: November 5, 2025  
+**Status**: 80% complete (JST-GH6 connection in progress)  
+**Blockers**: Task #1 completion (JST-GH6 wiring)
 
 ### Milestone 2: Hardware Verification ⏳
 **Target**: November 5, 2025  

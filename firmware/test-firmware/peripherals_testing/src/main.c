@@ -11,20 +11,24 @@
 #include "hardware/gpio.h"
 #include "hardware/spi.h"
 #include "hardware/uart.h"
+#include "hardware/pwm.h"
 #include "openfc2040_board.h"
+
+// Buzzer configuration for QMB-09B-03 (2700Hz ±300Hz)
+#define BUZZER_FREQUENCY_HZ 2700  // Resonant frequency
 
 // ========================================
 // SENSOR CALIBRATION CONSTANTS
 // ========================================
 // Adjust these values to fine-tune sensor readings
 
-// Buzzer
-//
 // GPS UART configuration
-#define GPS_UART uart0
+// NOTE: GPS uses UART1 (GPIO4/GPIO5), NOT UART0 (GPIO0/GPIO1)
+// UART0 is reserved for USB console (stdio)
+#define GPS_UART uart1
 #define GPS_BAUD_RATE 9600
-#define GPS_TX_PIN UART_TX_PIN
-#define GPS_RX_PIN UART_RX_PIN
+#define GPS_TX_PIN 4  // GPS TX on GPIO4 (UART1)
+#define GPS_RX_PIN 5  // GPS RX on GPIO5 (UART1)
 
 // IMU (LSM6DS3TR-C) Calibration
 #define IMU_ACCEL_SCALE_MG_PER_LSB    0.061f    // mg per LSB for ±2g range
@@ -79,21 +83,88 @@ void led_set_color(bool red, bool green, bool blue) {
     gpio_put(LED_BLUE_PIN, !blue);
 }
 
-// Buzzer control
+// Buzzer control (PWM-based for passive buzzer QMB-09B-03)
+// Resonant frequency: 2700Hz ±300Hz (2400-3000Hz range)
 void buzzer_init(void) {
-    gpio_init(BUZZER_PIN);
-    gpio_set_dir(BUZZER_PIN, GPIO_OUT);
-    gpio_put(BUZZER_PIN, 0);
+    // Set GPIO function to PWM
+    gpio_set_function(BUZZER_PIN, GPIO_FUNC_PWM);
+    
+    // Get PWM slice for this pin
+    uint slice_num = pwm_gpio_to_slice_num(BUZZER_PIN);
+    
+    // Calculate clock divider and wrap value for 2700Hz
+    // PWM frequency = clock_freq / (divider * (wrap + 1))
+    // For 2700Hz: 125MHz / (divider * wrap) ≈ 2700Hz
+    // Using divider=50, wrap=925 gives: 125000000 / (50 * 926) = 2700.2 Hz
+    pwm_set_clkdiv(slice_num, 50.0f);
+    pwm_set_wrap(slice_num, 925);  // wrap value for 2700Hz
+    
+    // Set 50% duty cycle for maximum volume
+    pwm_set_gpio_level(BUZZER_PIN, 463);  // 50% of 926
+    
+    // Don't enable PWM yet (buzzer off)
+    pwm_set_enabled(slice_num, false);
 }
 
 void buzzer_set(bool on) {
-    gpio_put(BUZZER_PIN, on ? 1 : 0);
+    uint slice_num = pwm_gpio_to_slice_num(BUZZER_PIN);
+    pwm_set_enabled(slice_num, on);
+}
+
+void buzzer_set_frequency(uint16_t frequency_hz) {
+    uint slice_num = pwm_gpio_to_slice_num(BUZZER_PIN);
+    
+    // Calculate wrap value for desired frequency
+    // PWM frequency = 125,000,000 / (divider * (wrap + 1))
+    // For divider=50: wrap = (125,000,000 / (50 * frequency)) - 1
+    uint16_t wrap = (125000000 / (50 * frequency_hz)) - 1;
+    
+    pwm_set_wrap(slice_num, wrap);
+    pwm_set_gpio_level(BUZZER_PIN, wrap / 2);  // 50% duty cycle
 }
 
 void buzzer_beep(uint duration_ms) {
     buzzer_set(true);
     sleep_ms(duration_ms);
     buzzer_set(false);
+}
+
+void buzzer_rising_tone(uint16_t start_hz, uint16_t end_hz, uint duration_ms) {
+    // Create a rising tone sweep from start_hz to end_hz over duration_ms
+    uint slice_num = pwm_gpio_to_slice_num(BUZZER_PIN);
+    pwm_set_enabled(slice_num, true);
+    
+    const uint steps = 50;  // Number of frequency steps
+    uint step_delay_ms = duration_ms / steps;
+    float freq_step = (float)(end_hz - start_hz) / steps;
+    
+    for (uint i = 0; i < steps; i++) {
+        uint16_t freq = start_hz + (uint16_t)(freq_step * i);
+        buzzer_set_frequency(freq);
+        sleep_ms(step_delay_ms);
+    }
+    
+    pwm_set_enabled(slice_num, false);
+}
+
+void buzzer_startup_sequence(void) {
+    // Police siren cycling between 2400Hz, 2700Hz, and 3000Hz for 5 seconds
+    uint slice_num = pwm_gpio_to_slice_num(BUZZER_PIN);
+    pwm_set_enabled(slice_num, true);
+    
+    absolute_time_t start_time = get_absolute_time();
+    uint16_t frequencies[] = {2400, 2700, 3000};
+    uint8_t freq_count = 3;
+    uint8_t freq_index = 0;
+    
+    // Run for 5 seconds
+    while (absolute_time_diff_us(start_time, get_absolute_time()) < 5000000) {
+        buzzer_set_frequency(frequencies[freq_index]);
+        sleep_ms(200);  // Change frequency every 200ms
+        freq_index = (freq_index + 1) % freq_count;
+    }
+    
+    pwm_set_enabled(slice_num, false);
 }
 
 // Software SPI for sensors
@@ -461,8 +532,8 @@ void process_commands() {
                 printf("All LEDs OFF\n");
             }
             else if (strcmp(cmd_buffer, "beep") == 0) {
-                printf("Buzzer test...\n");
-                buzzer_beep(200);
+                printf("Playing police siren (5 seconds)...\n");
+                buzzer_startup_sequence();
                 printf("Buzzer test complete\n");
             }
             else if (strcmp(cmd_buffer, "sensors") == 0) {
@@ -594,10 +665,9 @@ int main() {
     sleep_ms(300);
     led_set_color(false, false, false);
 
-    // Buzzer test
-    buzzer_beep(1000);
-    sleep_ms(100);
-    buzzer_beep(1000);
+    // Buzzer test - rising tone from 2400Hz to 3000Hz
+    printf("Playing startup tone (2400Hz -> 3000Hz)...\n");
+    buzzer_startup_sequence();
 
     // Check sensors
     uint8_t imu_id = spi_read_register(SPI_CS_IMU_PIN, 0x0F);
