@@ -1,0 +1,5 @@
+TODO:
+- Review CONTRIBUTING.md to locate cluttered formatting (random code fences, emojis, awkward numbering)
+- Simplify structure: rewrite intro, workflow, testing, commit guidelines with clean headings and bullet lists
+- Remove stray code blocks and emojis while keeping essential instructions
+- Proofread for ASCII-only characters and consistent formatting
