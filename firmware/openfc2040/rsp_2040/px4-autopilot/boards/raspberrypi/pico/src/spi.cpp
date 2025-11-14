@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2021 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2024 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,17 +31,35 @@
  *
  ****************************************************************************/
 
+/**
+ * @file spi.cpp
+ * 
+ * OpenFC2040 SPI bus configuration
+ */
+
 #include <px4_arch/spi_hw_description.h>
 #include <drivers/drv_sensor.h>
 #include <nuttx/spi/spi.h>
 
+/*
+ * OpenFC2040 SPI Configuration:
+ * 
+ * SPI1 Bus (Sensors):
+ * - SCK:  GPIO10
+ * - MOSI: GPIO11
+ * - MISO: GPIO8
+ * 
+ * Devices on SPI1:
+ * - LSM6DS3TR-C IMU: CS on GPIO9
+ * - DPS310 Barometer: CS on GPIO12
+ */
+
 constexpr px4_spi_bus_t px4_spi_buses[SPI_BUS_MAX_BUS_ITEMS] = {
-	initSPIBus(SPI::Bus::SPI0, {
-		initSPIDevice(SPIDEV_MMCSD(0), SPI::CS{GPIO::Pin5}),
-	}),
-	initSPIBusExternal(SPI::Bus::SPI1, {
-		initSPIConfigExternal(SPI::CS{GPIO::Pin13}),
-		initSPIConfigExternal(SPI::CS{GPIO::Pin14}),
+	initSPIBus(SPI::Bus::SPI1, {
+		// Temporary IMU device type until LSM6DS3 driver is available
+		initSPIDevice(DRV_IMU_DEVTYPE_LSM303D, SPI::CS{GPIO::Pin9}),
+		// DPS310 Barometer on GPIO12
+		initSPIDevice(DRV_BARO_DEVTYPE_DPS310, SPI::CS{GPIO::Pin12}),
 	}),
 };
 

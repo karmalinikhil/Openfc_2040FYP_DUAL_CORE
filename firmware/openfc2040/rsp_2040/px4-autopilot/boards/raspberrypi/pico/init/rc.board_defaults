@@ -1,10 +1,43 @@
 #!/bin/sh
 #
-# board specific defaults
+# OpenFC2040 board specific defaults
 #------------------------------------------------------------------------------
 
-param set-default BAT1_V_DIV 13.653333333
-param set-default BAT1_A_PER_V 36.367515152
+# Battery configuration for OpenFC2040
+param set-default BAT1_V_DIV 11.0
+param set-default BAT1_A_PER_V 40.0
 
-# system_power unavailable
-param set-default CBRK_SUPPLY_CHK 894281
+# Enable safety switch
+param set-default CBRK_IO_SAFETY 0
+
+# Set default PWM rate for ESCs
+param set-default PWM_RATE 400
+
+# RC configuration
+param set-default RC_PORT_CONFIG 300
+
+# LED configuration
+param set-default LED_RGB_MAXBRT 10
+
+# Sensor rotation (if needed)
+param set-default SENS_BOARD_ROT 0
+
+# Default mixer for quadcopter
+param set-default SYS_AUTOSTART 4001
+
+# USB auto-connect
+param set-default CBRK_USB_CHK 0
+
+# Ensure MAVLink instances are controlled from rc.board_mavlink (USB) by default
+param set-default MAV_0_CONFIG 0
+param set-default MAV_1_CONFIG 0
+param set-default MAV_2_CONFIG 0
+
+# Match telemetry UART baudrate with hardware console wiring
+param set-default SER_TEL1_BAUD 115200
+
+# UART0 console is automatically started by NuttX when CONFIG_UART0_SERIAL_CONSOLE=y
+# NSH shell will be available on /dev/ttyS0 at 115200 baud
+# No need to manually start nshterm - console is automatic
+# If you need a second NSH terminal, uncomment the line below:
+# nshterm start -d /dev/ttyS1 -b 115200

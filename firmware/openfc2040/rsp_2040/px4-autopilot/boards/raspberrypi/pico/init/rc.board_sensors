@@ -1,12 +1,19 @@
 #!/bin/sh
 #
-# board specific sensors init
+# OpenFC2040 board specific sensors init
 #------------------------------------------------------------------------------
 
+# Start board ADC for battery monitoring
 board_adc start
 
-# try starting an mpu9250 IMU on external SPI
-mpu9250 start -S
+# Start LSM6DS3 IMU on SPI1
+lsm6ds3 start -s -b 1
 
-# try starting a bmp280 barometer on external SPI
-bmp280 start -S
+# Start DPS310 barometer on SPI1
+dps310 start -s -b 1
+
+# Start GPS on UART1
+gps start -d /dev/ttyS1
+
+# Start RC input
+rc_input start -d /dev/ttyS3

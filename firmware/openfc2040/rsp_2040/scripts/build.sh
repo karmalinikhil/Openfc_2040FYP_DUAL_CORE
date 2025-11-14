@@ -59,8 +59,17 @@ check_dependencies() {
 }
 
 check_px4_submodule() {
-    if [ ! -d "$PX4_ROOT/.git" ]; then
-        print_error "PX4-Autopilot submodule not initialized"
+    # Check if PX4-Autopilot directory exists and has content
+    if [ ! -d "$PX4_ROOT" ]; then
+        print_error "PX4-Autopilot directory not found"
+        print_status "Please run setup first:"
+        print_status "  ./scripts/setup.sh"
+        exit 1
+    fi
+    
+    # Check if it has actual PX4 content (CMakeLists.txt is a key file)
+    if [ ! -f "$PX4_ROOT/CMakeLists.txt" ]; then
+        print_error "PX4-Autopilot directory exists but appears empty"
         print_status "Please run setup first:"
         print_status "  ./scripts/setup.sh"
         exit 1
@@ -124,21 +133,30 @@ generate_uf2() {
     cd "$PX4_ROOT"
     
     if [ -f "build/${BOARD_TARGET}/${BOARD_TARGET}.bin" ]; then
-        # Use uf2conv.py if available
+        # Use uf2conv.py if available (prefer PX4 Tools/, fallback to local project copy)
+        UF2CONV=""
         if [ -f "Tools/uf2conv.py" ]; then
-            print_status "Converting binary to UF2 format..."
-            python3 Tools/uf2conv.py \
+            UF2CONV="Tools/uf2conv.py"
+        elif [ -f "${PROJECT_ROOT}/uf2conv.py" ]; then
+            UF2CONV="${PROJECT_ROOT}/uf2conv.py"
+        fi
+
+        if [ -n "$UF2CONV" ]; then
+            print_status "Converting binary to UF2 format using: $UF2CONV"
+            python3 "$UF2CONV" \
                 -b 0x10000000 \
                 -f 0xe48bff56 \
                 "build/${BOARD_TARGET}/${BOARD_TARGET}.bin" \
                 -o "build/${BOARD_TARGET}/${BOARD_TARGET}.uf2"
-            
+
             if [ -f "build/${BOARD_TARGET}/${BOARD_TARGET}.uf2" ]; then
                 print_status "UF2 file generated successfully"
                 ls -lh "build/${BOARD_TARGET}/${BOARD_TARGET}.uf2"
+            else
+                print_warning "UF2 conversion did not produce output file"
             fi
         else
-            print_warning "uf2conv.py not found, UF2 generation skipped"
+            print_warning "uf2conv.py not found in PX4 Tools/ or project root; UF2 generation skipped"
         fi
     else
         print_error "Binary file not found at: build/${BOARD_TARGET}/${BOARD_TARGET}.bin"

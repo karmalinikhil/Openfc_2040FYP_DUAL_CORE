@@ -115,17 +115,30 @@ __END_DECLS
 void rp2040_boardearlyinitialize(void)
 {
 	/* Configure UART pins for OpenFC2040 */
+	/* Use the same pattern as Pico board for proper initialization */
 	
-	/* Telemetry UART on GPIO0/1 (UART0) */
+	/* Telemetry UART on GPIO0/1 (UART0) - Console */
 #if defined(CONFIG_RP2040_UART0) && CONFIG_RP2040_UART0_GPIO >= 0
-	rp2040_gpio_set_function(0, RP2040_GPIO_FUNC_UART);  /* TX */
-	rp2040_gpio_set_function(1, RP2040_GPIO_FUNC_UART);  /* RX */
+	rp2040_gpio_set_function(CONFIG_RP2040_UART0_GPIO, RP2040_GPIO_FUNC_UART);     /* TX */
+	rp2040_gpio_set_function(CONFIG_RP2040_UART0_GPIO + 1, RP2040_GPIO_FUNC_UART); /* RX */
+# ifdef CONFIG_SERIAL_OFLOWCONTROL
+	rp2040_gpio_set_function(CONFIG_RP2040_UART0_GPIO + 2, RP2040_GPIO_FUNC_UART); /* CTS */
+# endif /* CONFIG_SERIAL_OFLOWCONTROL */
+# ifdef CONFIG_SERIAL_IFLOWCONTROL
+	rp2040_gpio_set_function(CONFIG_RP2040_UART0_GPIO + 3, RP2040_GPIO_FUNC_UART); /* RTS */
+# endif /* CONFIG_SERIAL_IFLOWCONTROL */
 #endif
 
 	/* GPS UART on GPIO4/5 (UART1) */
 #if defined(CONFIG_RP2040_UART1) && CONFIG_RP2040_UART1_GPIO >= 0
-	rp2040_gpio_set_function(4, RP2040_GPIO_FUNC_UART);  /* TX */
-	rp2040_gpio_set_function(5, RP2040_GPIO_FUNC_UART);  /* RX */
+	rp2040_gpio_set_function(CONFIG_RP2040_UART1_GPIO, RP2040_GPIO_FUNC_UART);     /* TX */
+	rp2040_gpio_set_function(CONFIG_RP2040_UART1_GPIO + 1, RP2040_GPIO_FUNC_UART); /* RX */
+# ifdef CONFIG_SERIAL_OFLOWCONTROL
+	rp2040_gpio_set_function(CONFIG_RP2040_UART1_GPIO + 2, RP2040_GPIO_FUNC_UART); /* CTS */
+# endif /* CONFIG_SERIAL_OFLOWCONTROL */
+# ifdef CONFIG_SERIAL_IFLOWCONTROL
+	rp2040_gpio_set_function(CONFIG_RP2040_UART1_GPIO + 3, RP2040_GPIO_FUNC_UART); /* RTS */
+# endif /* CONFIG_SERIAL_IFLOWCONTROL */
 #endif
 }
 

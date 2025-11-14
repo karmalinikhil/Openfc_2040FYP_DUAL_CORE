@@ -18,9 +18,11 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 PX4_DIR="$PROJECT_ROOT/px4-autopilot"
-BOARD_NAME="rsp_2040"
-BUILD_TYPE="default"
-UF2_FILE="$PX4_DIR/build/${BOARD_NAME}_${BUILD_TYPE}/${BOARD_NAME}_${BUILD_TYPE}.uf2"
+BOARD_VENDOR="raspberrypi"
+BOARD_MODEL="pico"
+BOARD_LABEL="default"
+BOARD_TARGET="${BOARD_VENDOR}_${BOARD_MODEL}_${BOARD_LABEL}"
+UF2_FILE="$PX4_DIR/build/${BOARD_TARGET}/${BOARD_TARGET}.uf2"
 
 # Functions
 print_status() {
@@ -55,7 +57,8 @@ check_uf2_exists() {
 }
 
 find_bootloader() {
-    print_status "Looking for RP2040 in bootloader mode..."
+    # Print to stderr so command substitution doesn't capture status text
+    print_status "Looking for RP2040 in bootloader mode..." 1>&2
     
     # Check for RPI-RP2 mount point
     local mount_points=(
@@ -74,8 +77,8 @@ find_bootloader() {
     
     # Check USB devices
     if lsusb 2>/dev/null | grep -q "2e8a:0003"; then
-        print_warning "RP2040 detected in bootloader mode but not mounted"
-        print_status "Trying to find mount point..."
+        print_warning "RP2040 detected in bootloader mode but not mounted" 1>&2
+        print_status "Trying to find mount point..." 1>&2
         
         # Try to find it in /proc/mounts or mount output
         local found_mount=$(mount | grep -i "rpi-rp2" | awk '{print $3}' | head -n1)

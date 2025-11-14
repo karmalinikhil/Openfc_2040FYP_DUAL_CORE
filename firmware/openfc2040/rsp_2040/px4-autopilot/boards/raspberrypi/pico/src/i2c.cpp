@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2021 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2024 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,8 +31,27 @@
  *
  ****************************************************************************/
 
+/**
+ * @file i2c.cpp
+ *
+ * OpenFC2040 I2C bus configuration
+ */
+
 #include <px4_arch/i2c_hw_description.h>
 
-constexpr px4_i2c_bus_t px4_i2c_buses[I2C_BUS_MAX_BUS_ITEMS] = {
-	initI2CBusExternal(2),
-};
+/*
+ * OpenFC2040 I2C Configuration:
+ * 
+ * I2C0 (GPS):
+ * - SDA: GPIO6
+ * - SCL: GPIO7
+ * 
+ * I2C1 (Telemetry):
+ * - SDA: GPIO2
+ * - SCL: GPIO3
+ */
+
+/* No I2C buses declared here yet (RP2040 pin mux configured in init.c).
+ * Add I2C buses once drivers using them are enabled.
+ */
+constexpr px4_i2c_bus_t px4_i2c_buses[I2C_BUS_MAX_BUS_ITEMS] = {};

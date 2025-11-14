@@ -89,7 +89,11 @@ typedef enum {
  * @return 0 on success, <0 on error
  */
 #if defined(CONFIG_BOARDCTL_RESET)
+#ifdef __cplusplus
 __EXPORT int px4_reboot_request(reboot_request_t request = REBOOT_REQUEST, uint32_t delay_us = 0);
+#else
+__EXPORT int px4_reboot_request(reboot_request_t request, uint32_t delay_us);
+#endif
 #endif // CONFIG_BOARDCTL_RESET
 
 

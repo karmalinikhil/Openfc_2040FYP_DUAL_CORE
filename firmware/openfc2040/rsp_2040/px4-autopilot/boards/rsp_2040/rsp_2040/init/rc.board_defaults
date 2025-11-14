@@ -27,3 +27,11 @@ param set-default SYS_AUTOSTART 4001
 
 # USB auto-connect
 param set-default CBRK_USB_CHK 0
+
+# Ensure MAVLink is only started from rc.board_mavlink on USB
+param set-default MAV_0_CONFIG 0
+param set-default MAV_1_CONFIG 0
+param set-default MAV_2_CONFIG 0
+
+# Match telemetry UART baudrate with hardware console wiring
+param set-default SER_TEL1_BAUD 115200

@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2021 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2024 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,12 +34,8 @@
 /**
  * @file usb.c
  *
- * Board-specific USB functions.
+ * OpenFC2040 USB configuration
  */
-
-/************************************************************************************
- * Included Files
- ************************************************************************************/
 
 #include <px4_platform_common/px4_config.h>
 
@@ -51,34 +47,42 @@
 #include <nuttx/usb/usbdev.h>
 #include <nuttx/usb/usbdev_trace.h>
 
-#include <arm_internal.h>
+#include <nuttx/board.h>
+#include <arch/board/board.h>
+
+#include <rp2040_gpio.h>
+#include <hardware/rp2040_sio.h>
+#include <px4_platform/gpio.h>
+
 #include "board_config.h"
 
 /************************************************************************************
- * Name: rp2040_usbinitialize
+ * Name: board_read_VBUS_state
  *
  * Description:
- *   Called to setup USB-related GPIO pins for the omnibusf4sd board.
+ *   Check the state of USB VBUS power on GPIO29 (ADC3)
  *
  ************************************************************************************/
 
-__EXPORT void rp2040_usbinitialize(void)
+__EXPORT int board_read_VBUS_state(void)
 {
-	px4_arch_configgpio(GPIO_USB_VBUS_VALID);
+	/* Return 0 (PX4_OK) when VBUS is present to match PX4 convention */
+	const bool vbus = (getreg32(RP2040_SIO_GPIO_IN) & (1 << 29)) != 0;
+	return vbus ? 0 : 1;
 }
 
 /************************************************************************************
- * Name:  stm32_usbsuspend
+ * Name: board_usb_init
  *
  * Description:
- *   Board logic must provide the stm32_usbsuspend logic if the USBDEV driver is
- *   used.  This function is called whenever the USB enters or leaves suspend mode.
- *   This is an opportunity for the board logic to shutdown clocks, power, etc.
- *   while the USB is suspended.
+ *   Called to setup USB-related GPIO pins for the OpenFC2040 board.
  *
  ************************************************************************************/
 
-__EXPORT void rp2040_usbsuspend(FAR struct usbdev_s *dev, bool resume)
+__EXPORT void board_usb_init(void)
 {
-	uinfo("resume: %d\n", resume);
+	/* Configure GPIO29 as input for VBUS detection */
+	rp2040_gpioconfig(GPIO_USB_VBUS_VALID);
+	
+	/* USB D+ and D- are handled by the RP2040 USB peripheral automatically */
 }
