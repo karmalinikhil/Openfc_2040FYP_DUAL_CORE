@@ -101,16 +101,17 @@
 #define PX4_I2C_BUS_TELEM    1
 
 /* MicroSD Card Configuration */
-/* SD card on SPI1 (GPIO16-19) */
+/* SD card on SPI0 (GPIO16-19) */
+/* Pinout: DAT0(MISO)=GPIO16, CLK(SCK)=GPIO18, CMD(MOSI)=GPIO19, CD/DAT3(CS)=GPIO17 */
 #define BOARD_HAS_SDCARD
-#define PX4_SPI_BUS_SDCARD   2
-#define PX4_SPIDEV_SDCARD    PX4_MK_SPI_SEL(2, 0)  // CS on GPIO16
-#define GPIO_SDCARD_CS       (16 | GPIO_FUN(RP2040_GPIO_FUNC_SPI))
+#define PX4_SPI_BUS_SDCARD   0  // SPI0
+#define PX4_SPIDEV_SDCARD    PX4_MK_SPI_SEL(0, 0)  // CS on GPIO17
+#define GPIO_SDCARD_CS       (17 | GPIO_FUN(RP2040_GPIO_FUNC_SPI))
 #define GPIO_SDCARD_SCK      (18 | GPIO_FUN(RP2040_GPIO_FUNC_SPI))
 #define GPIO_SDCARD_MOSI     (19 | GPIO_FUN(RP2040_GPIO_FUNC_SPI))
 #define GPIO_SDCARD_MISO     (16 | GPIO_FUN(RP2040_GPIO_FUNC_SPI))
 /* Card detect pin (if connected) */
-#define GPIO_SDCARD_CD       (17 | GPIO_FUN(RP2040_GPIO_FUNC_SIO))  // Optional
+#define GPIO_SDCARD_CD       (17 | GPIO_FUN(RP2040_GPIO_FUNC_SIO))  // Optional, same as CS
 #define BOARD_SDCARD_CD_ACTIVE_LOW  1
 
 /* UART Configuration */
@@ -146,7 +147,7 @@
 
 /* Board-specific driver defaults */
 #define BOARD_NUMBER_I2C_BUSES  2
-#define BOARD_NUMBER_SPI_BUSES  2  // SPI0=sensors, SPI1=SD card
+#define BOARD_NUMBER_SPI_BUSES  2  // SPI0=SD card, SPI1=sensors
 
 __BEGIN_DECLS
 

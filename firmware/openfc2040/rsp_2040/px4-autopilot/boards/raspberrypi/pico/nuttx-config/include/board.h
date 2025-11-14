@@ -102,16 +102,16 @@
 #define CONFIG_RP2040_I2C1_GPIO		6
 
 /* SPI0:
- *  SPIDEV_FLASH (probably micro sd card)
- *  CS: GPIO5 -- should be configured in sec/spi.cpp (probably)
- *  CLK: GPIO2
- *  MISO: GPIO4
- *  MOSI: GPIO3
+ *  SD Card (MMCSD) for OpenFC2040
+ *  CS: GPIO17 (CD/DAT3)
+ *  CLK: GPIO18
+ *  MISO: GPIO16 (DAT0)
+ *  MOSI: GPIO19 (CMD)
  */
 
-#define GPIO_SPI0_SCLK  ( 2 | GPIO_FUN(RP2040_GPIO_FUNC_SPI) )
-#define GPIO_SPI0_MISO ( 4 | GPIO_FUN(RP2040_GPIO_FUNC_SPI) )
-#define GPIO_SPI0_MOSI ( 3 | GPIO_FUN(RP2040_GPIO_FUNC_SPI) )
+#define GPIO_SPI0_SCLK  ( 18 | GPIO_FUN(RP2040_GPIO_FUNC_SPI) )
+#define GPIO_SPI0_MISO ( 16 | GPIO_FUN(RP2040_GPIO_FUNC_SPI) )
+#define GPIO_SPI0_MOSI ( 19 | GPIO_FUN(RP2040_GPIO_FUNC_SPI) )
 
 /* SPI1:
  *  MPU9250 and BMP280

@@ -44,6 +44,12 @@
 /*
  * OpenFC2040 SPI Configuration:
  * 
+ * SPI0 Bus (SD Card):
+ * - SCK:  GPIO18
+ * - MOSI: GPIO19 (CMD)
+ * - MISO: GPIO16 (DAT0)
+ * - CS:   GPIO17 (CD/DAT3)
+ * 
  * SPI1 Bus (Sensors):
  * - SCK:  GPIO10
  * - MOSI: GPIO11
@@ -55,6 +61,11 @@
  */
 
 constexpr px4_spi_bus_t px4_spi_buses[SPI_BUS_MAX_BUS_ITEMS] = {
+	// SPI0: SD Card on GPIO16-19
+	initSPIBus(SPI::Bus::SPI0, {
+		initSPIDevice(SPIDEV_MMCSD(0), SPI::CS{GPIO::Pin17}),  // SD card CS on GPIO17
+	}),
+	// SPI1: Sensors (IMU and Barometer)
 	initSPIBus(SPI::Bus::SPI1, {
 		// Temporary IMU device type until LSM6DS3 driver is available
 		initSPIDevice(DRV_IMU_DEVTYPE_LSM303D, SPI::CS{GPIO::Pin9}),
