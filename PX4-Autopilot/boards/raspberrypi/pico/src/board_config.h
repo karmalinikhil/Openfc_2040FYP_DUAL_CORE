@@ -1,20 +1,20 @@
 /****************************************************************************
  *
- * Copyright (c) 2021 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2021 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
  *
  * 1. Redistributions of source code must retain the above copyright
- * notice, this list of conditions and the following disclaimer.
+ *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
- * notice, this list of conditions and the following disclaimer in
- * the documentation and/or other materials provided with the
- * distribution.
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
  * 3. Neither the name PX4 nor the names of its contributors may be
- * used to endorse or promote products derived from this software
- * without specific prior written permission.
+ *    used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -34,124 +34,99 @@
 /**
  * @file board_config.h
  *
- * OpenFC2040 Internal Definitions
+ * board internal definitions
  */
 
 #pragma once
+
+/****************************************************************************************************
+ * Included Files
+ ****************************************************************************************************/
 
 #include <px4_platform_common/px4_config.h>
 #include <nuttx/compiler.h>
 #include <stdint.h>
 
-/* * ---------------------------------------------------------
- * LEDs (RGB)
- * ---------------------------------------------------------
- * Red: GPIO13, Green: GPIO14, Blue: GPIO15 
+/* LEDs */
+// LED1 - GPIO 25 - Green
+#define GPIO_LED1       PX4_MAKE_GPIO_OUTPUT_CLEAR(25) // Take a look at rpi_common micro_hal.h
+#define GPIO_LED_BLUE   GPIO_LED1
+
+#define BOARD_OVERLOAD_LED     LED_BLUE
+
+/*
+ * ADC channels
+ *
+ * These are the channel numbers of the ADCs of the microcontroller that can be used by the Px4 Firmware in the adc driver
  */
-#define GPIO_LED_RED    PX4_MAKE_GPIO_OUTPUT_CLEAR(13)
-#define GPIO_LED_GREEN  PX4_MAKE_GPIO_OUTPUT_CLEAR(14)
-#define GPIO_LED_BLUE   PX4_MAKE_GPIO_OUTPUT_CLEAR(15)
+#define ADC_CHANNELS (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3)	// Change this later based on the adc channels actually used
 
-/* Define standard PX4 LED colors to your hardware */
-#define GPIO_LED_SAFETY GPIO_LED_RED
-#define BOARD_OVERLOAD_LED     LED_RED
-#define BOARD_ARMED_LED        LED_BLUE
-#define BOARD_HAS_CONTROL_STATUS_LEDS 1
+#define ADC_BATTERY_VOLTAGE_CHANNEL  1			// Corresponding GPIO 27. Used in init.c for disabling GPIO_IE
+#define ADC_BATTERY_CURRENT_CHANNEL  2			// Corresponding GPIO 28. Used in init.c for disabling GPIO_IE
+#define ADC_RC_RSSI_CHANNEL          0
 
-/* * ---------------------------------------------------------
- * ADC / Battery
- * ---------------------------------------------------------
- * BATT_V: GPIO27 (ADC1), BATT_A: GPIO28 (ADC2)
- */
-// Channel Bitmask: ADC1 (bit 1) and ADC2 (bit 2)
-#define ADC_CHANNELS ((1 << 1) | (1 << 2)) 
-
-#define ADC_BATTERY_VOLTAGE_CHANNEL  1  // GPIO 27
-#define ADC_BATTERY_CURRENT_CHANNEL  2  // GPIO 28
-
-/* * ---------------------------------------------------------
- * BUZZER (Passive)
- * ---------------------------------------------------------
- * Huaneng QMB-09B-03 on GPIO 25
- */
-#define GPIO_TONE_ALARM_0    PX4_MAKE_GPIO_OUTPUT_CLEAR(25)
-
-/* * ---------------------------------------------------------
- * RC INPUT
- * ---------------------------------------------------------
- * RC Input: GPIO24
- * Note: We use PIO/PPM so we don't conflict with GPS UART 
- */
+/* High-resolution timer */
 #define HRT_TIMER 1
 #define HRT_TIMER_CHANNEL 1
-#define HRT_PPM_CHANNEL 1    
-// Mapped to GPIO 24
-#define GPIO_PPM_IN        (24 | GPIO_FUN(RP2040_GPIO_FUNC_SIO)) 
+#define HRT_PPM_CHANNEL 1	// Number really doesn't matter for this board
+#define GPIO_PPM_IN		(16 | GPIO_FUN(RP2040_GPIO_FUNC_SIO))
+#define RC_SERIAL_PORT               "/dev/ttyS3"
+#define BOARD_SUPPORTS_RC_SERIAL_PORT_OUTPUT
 
-// If using Serial RC (CRSF/ELRS/SBUS) via UART1 on these pins:
-// Note: UART1 is also used by GPS (GPIO 4/5). You cannot use Hardware UART1 
-// for both. RC on 24 implies using PIO for RC or swapping GPS pins.
-// Assuming PPM/SBUS-PIO for now:
-//#define RC_SERIAL_PORT             "/dev/ttyS1" 
-
-/* * ---------------------------------------------------------
- * USB / VBUS
- * ---------------------------------------------------------
- * User did not specify VBUS sense pin. 
- * GPIO24 is RC, so we cannot use it for VBUS.
- * We force logic true to assume USB is managed by internal PHY.
- */
-#define BOARD_ADC_USB_CONNECTED (true)
-
-/* * ---------------------------------------------------------
- * SPI DEFINITIONS (Mapping for Drivers)
- * ---------------------------------------------------------
- */
-
-/* SPI0: SD Card */
-#define GPIO_SPI0_MISO   16
-#define GPIO_SPI0_CS     17
-#define GPIO_SPI0_SCK    18
-#define GPIO_SPI0_MOSI   19
-
-/* SPI1: Sensors (IMU & Baro) */
-#define GPIO_SPI1_MISO   8
-#define GPIO_SPI1_CS_IMU 9  // LSM6DS3
-#define GPIO_SPI1_SCK    10
-#define GPIO_SPI1_MOSI   11 
-#define GPIO_SPI1_CS_BARO 12 // DPS310
-
-/* * ---------------------------------------------------------
- * I2C EXTENSION (GPS Mag)
- * ---------------------------------------------------------
- * Mag SDA: GPIO6, Mag SCL: GPIO7 -> I2C1 on RP2040
- */
-#define PX4_I2C_BUS_EXPANSION 1
-#define GPIO_I2C1_SDA    6
-#define GPIO_I2C1_SCL    7
-
-
-/* * ---------------------------------------------------------
- * PWM / ESCs
- * ---------------------------------------------------------
- * ESC0-3: GPIO 20-23
- */
-#define DIRECT_PWM_OUTPUT_CHANNELS       4
-#define BOARD_HAS_PWM    DIRECT_PWM_OUTPUT_CHANNELS
-
-
-/* System Config */
+/* This board provides a DMA pool and APIs */			// Needs to be figured out
 #define BOARD_DMA_ALLOC_POOL_SIZE 2048
+
 #define BOARD_ENABLE_CONSOLE_BUFFER
 #define BOARD_CONSOLE_BUFFER_SIZE (1024*3)
 
+/* USB
+ *
+ *  VBUS detection is on 29  ADC_DPM0 and PTE8
+ */
+#define GPIO_USB_VBUS_VALID     (24 | GPIO_FUN(RP2040_GPIO_FUNC_SIO))    // Used in usb.c
+
+/* PWM
+ *
+ * Alternatively CH3/CH4 could be assigned to UART6_TX/RX
+ */
+#define DIRECT_PWM_OUTPUT_CHANNELS      4
+
+// Has pwm outputs
+#define BOARD_HAS_PWM    DIRECT_PWM_OUTPUT_CHANNELS
+
+/*
+ * By Providing BOARD_ADC_USB_CONNECTED (using the px4_arch abstraction)
+ * this board support the ADC system_power interface, and therefore
+ * provides the true logic GPIO BOARD_ADC_xxxx macros.
+ */
+
+#define BOARD_ADC_USB_CONNECTED (px4_arch_gpioread(GPIO_USB_VBUS_VALID))
 
 __BEGIN_DECLS
 
 #ifndef __ASSEMBLY__
 
+/****************************************************************************************************
+ * Name: rp2040_spiinitialize
+ *
+ * Description:
+ *   Called to configure SPI chip select GPIO pins for the PX4FMU board.
+ *
+ ****************************************************************************************************/
+
 extern void rp2040_spiinitialize(void);
+
+
+/****************************************************************************************************
+ * Name: rp2040_usbinitialize
+ *
+ * Description:
+ *   Called to configure USB IO.
+ *
+ ****************************************************************************************************/
+
 extern void rp2040_usbinitialize(void);
+
 extern void board_peripheral_reset(int ms);
 
 #include <px4_platform_common/board_common.h>

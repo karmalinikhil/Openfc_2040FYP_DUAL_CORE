@@ -2,43 +2,16 @@ CONFIG_BOARD_TOOLCHAIN="arm-none-eabi"
 CONFIG_BOARD_ARCHITECTURE="cortex-m0plus"
 CONFIG_BOARD_CONSTRAINED_FLASH=y
 CONFIG_BOARD_CONSTRAINED_MEMORY=y
-
-# ---------------------------------------------------------
-# Serial Port Mappings (RP2040 has 2 UARTs)
-# ---------------------------------------------------------
-# UART0 (Telemetry on GPIO 0/1): /dev/ttyS0
-# UART1 (GPS on GPIO 4/5):       /dev/ttyS1
-CONFIG_BOARD_SERIAL_TEL1="/dev/ttyS0"
-CONFIG_BOARD_SERIAL_GPS1="/dev/ttyS1"
-
-# ---------------------------------------------------------
-# Drivers
-# ---------------------------------------------------------
+CONFIG_BOARD_SERIAL_GPS1="/dev/ttyS2"
+CONFIG_BOARD_SERIAL_TEL1="/dev/ttyS1"
 CONFIG_DRIVERS_ADC_BOARD_ADC=y
+CONFIG_DRIVERS_BAROMETER_BMP280=y
 CONFIG_DRIVERS_CDCACM_AUTOSTART=y
 CONFIG_DRIVERS_GPS=y
+CONFIG_DRIVERS_IMU_INVENSENSE_MPU9250=y
+CONFIG_DRIVERS_MAGNETOMETER_HMC5883=y
 CONFIG_DRIVERS_PWM_OUT=y
 CONFIG_DRIVERS_RC_INPUT=y
-#CONFIG_DRIVERS_TONE_ALARM=y 
-
-# ---------------------------------------------------------
-# Sensors (OpenFC2040 Specific)
-# ---------------------------------------------------------
-# Internal IMU: LSM6DS3TR-C
-CONFIG_DRIVERS_IMU_ST_LSM6DS3=y
-
-# Internal Barometer: DPS310
-CONFIG_DRIVERS_BAROMETER_DPS310=y
-
-# External Magnetometers (I2C)
-# We enable multiple drivers because external GPS units vary
-CONFIG_DRIVERS_MAGNETOMETER_HMC5883=y
-CONFIG_DRIVERS_MAGNETOMETER_QMC5883L=y
-CONFIG_DRIVERS_MAGNETOMETER_IST8310=y
-
-# ---------------------------------------------------------
-# Modules
-# ---------------------------------------------------------
 CONFIG_MODULES_ATTITUDE_ESTIMATOR_Q=y
 CONFIG_MODULES_BATTERY_STATUS=y
 CONFIG_MODULES_COMMANDER=y

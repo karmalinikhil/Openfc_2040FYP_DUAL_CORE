@@ -3,21 +3,10 @@
 # board specific sensors init
 #------------------------------------------------------------------------------
 
-# 1. Start ADC
-# Necessary for Battery Voltage (GPIO27) and Current (GPIO28) monitoring
 board_adc start
 
-# 2. Start IMU: LSM6DS3TR-C
-# -s : Forces SPI interface check
-# -R : Rotation (See note below). 0 = ROTATION_NONE
-# The driver will look at the px4_spi_buses struct we defined earlier to find the CS pin (GPIO9)
-# Adjust -R:
-# If the sensor's X points to the drone's Right, use -R 2 (Yaw 90).
-# If the sensor's X points to the drone's Back, use -R 4 (Yaw 180).
-#If the sensor is mounted on the bottom of the board, you will need a Roll 180 rotation included (e.g., ROTATION_ROLL_180_YAW_90).
-lsm6ds3 start -s -R 0
+# try starting an mpu9250 IMU on external SPI
+mpu9250 start -S
 
-# 3. Start Barometer: DPS310
-# -s : Forces SPI interface check
-# The driver will look at px4_spi_buses to find the CS pin (GPIO12)
-dps310 start -s
+# try starting a bmp280 barometer on external SPI
+bmp280 start -S

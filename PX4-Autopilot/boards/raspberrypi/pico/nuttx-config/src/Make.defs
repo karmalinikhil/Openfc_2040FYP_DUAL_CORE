@@ -1,2 +1,0 @@
-include $(TOPDIR)/.config
-include $(TOPDIR)/tools/Config.mk

@@ -41,30 +41,31 @@
  * Included Files
  ************************************************************************************/
 
- #include <px4_platform_common/px4_config.h>
- #include <sys/types.h>
- #include <stdint.h>
- #include <stdbool.h>
- #include <debug.h>
- #include <nuttx/usb/usbdev.h>
- #include <nuttx/usb/usbdev_trace.h>
- #include <arm_internal.h>
- #include "board_config.h"
- 
- /************************************************************************************
-  * Name: rp2040_usbinitialize
-  * Description: Setup USB-related GPIO pins.
-  ************************************************************************************/
- __EXPORT void rp2040_usbinitialize(void)
- {
-     // No VBUS sense pin on OpenFC2040. 
-     // RP2040 Native USB pads are handled by hardware/PHY automatically.
- }
- 
- __EXPORT void rp2040_usbsuspend(FAR struct usbdev_s *dev, bool resume)
- {
-     uinfo("resume: %d\n", resume);
- }
+#include <px4_platform_common/px4_config.h>
+
+#include <sys/types.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <debug.h>
+
+#include <nuttx/usb/usbdev.h>
+#include <nuttx/usb/usbdev_trace.h>
+
+#include <arm_internal.h>
+#include "board_config.h"
+
+/************************************************************************************
+ * Name: rp2040_usbinitialize
+ *
+ * Description:
+ *   Called to setup USB-related GPIO pins for the omnibusf4sd board.
+ *
+ ************************************************************************************/
+
+__EXPORT void rp2040_usbinitialize(void)
+{
+	px4_arch_configgpio(GPIO_USB_VBUS_VALID);
+}
 
 /************************************************************************************
  * Name:  stm32_usbsuspend

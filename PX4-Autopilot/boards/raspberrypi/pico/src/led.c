@@ -31,79 +31,89 @@
  *
  ****************************************************************************/
 
- /**
-  * @file led.c
-  *
-  * board LED backend.
-  */
- 
- #include <px4_platform_common/px4_config.h>
- 
- #include <stdbool.h>
- 
- #include "board_config.h"
- 
- #include <arch/board/board.h>
- 
- /*
-  * Ideally we'd be able to get these from arm_internal.h,
-  * but since we want to be able to disable the NuttX use
-  * of leds for system indication at will and there is no
-  * separate switch, we need to build independent of the
-  * CONFIG_ARCH_LEDS configuration switch.
-  */
- __BEGIN_DECLS
- extern void led_init(void);
- extern void led_on(int led);
- extern void led_off(int led);
- extern void led_toggle(int led);
- __END_DECLS
- 
- /* * LED Map 
-  * Index 0: Blue  (Armed / Heartbeat)
-  * Index 1: Red   (Error / Safety)
-  * Index 2: Green (GPS / Ready)
-  */
- static const uint32_t g_ledmap[] = {
-     GPIO_LED_BLUE,   // GPIO 15
-     GPIO_LED_RED,    // GPIO 13
-     GPIO_LED_GREEN   // GPIO 14
- };
- 
- #define LED_COUNT (sizeof(g_ledmap) / sizeof(g_ledmap[0]))
- 
- __EXPORT void led_init(void)
- {
-     /* Configure LED GPIOs for output */
-     for (size_t l = 0; l < LED_COUNT; l++) {
-         px4_arch_configgpio(g_ledmap[l]);
-     }
- }
- 
- static void phy_set_led(int led, bool state)
- {
-     if (led >= 0 && led < LED_COUNT) {
-         /* * Active High Logic:
-          * true  (1) = ON
-          * false (0) = OFF
-          */
-         px4_arch_gpiowrite(g_ledmap[led], state);
-     }
- }
- 
- __EXPORT void led_on(int led)
- {
-     phy_set_led(led, true);
- }
- 
- __EXPORT void led_off(int led)
- {
-     phy_set_led(led, false);
- }
- 
- __EXPORT void led_toggle(int led)
- {
-     if (led >= 0 && led < LED_COUNT) {
-         phy_set_led(led, !px4_arch_gpioread(g_ledmap[led]));
-     }
- }
+/**
+ * @file led.c
+ *
+ * board LED backend.
+ */
+
+#include <px4_platform_common/px4_config.h>
+
+#include <stdbool.h>
+
+#include "board_config.h"
+
+#include <arch/board/board.h>
+
+/*
+ * Ideally we'd be able to get these from arm_internal.h,
+ * but since we want to be able to disable the NuttX use
+ * of leds for system indication at will and there is no
+ * separate switch, we need to build independent of the
+ * CONFIG_ARCH_LEDS configuration switch.
+ */
+__BEGIN_DECLS
+extern void led_init(void);
+extern void led_on(int led);
+extern void led_off(int led);
+extern void led_toggle(int led);
+__END_DECLS
+
+static uint32_t g_ledmap[] = {
+	GPIO_LED_BLUE,		// Onboard led on raspberrypi pico
+};
+
+__EXPORT void led_init(void)
+{
+	/* Configure LED GPIOs for output */
+	for (size_t l = 0; l < (sizeof(g_ledmap) / sizeof(g_ledmap[0])); l++) {
+		px4_arch_configgpio(g_ledmap[l]);
+	}
+}
+
+static void phy_set_led(int led, bool state)
+{
+	/* Pull Down to switch on */
+	if (led == 0) {
+		px4_arch_gpiowrite(g_ledmap[led], state);
+	}
+}
+
+__EXPORT void led_on(int led)
+{
+	phy_set_led(led, true);
+}
+
+__EXPORT void led_off(int led)
+{
+	phy_set_led(led, false);
+}
+
+__EXPORT void led_toggle(int led)
+{
+	if (led == 0) {
+		phy_set_led(led, !px4_arch_gpioread(g_ledmap[led]));
+	}
+}
+
+// __EXPORT void board_autoled_initialize()
+// {
+// 	/* Configure LED1 GPIO for output */
+// 	px4_arch_configgpio(GPIO_LED1);
+// }
+
+// __EXPORT void board_autoled_on(int led)
+// {
+// 	if (led == 1) {
+// 		/* Pull down to switch on */
+// 		px4_arch_gpiowrite(GPIO_LED1, false);
+// 	}
+// }
+
+// __EXPORT void board_autoled_off(int led)
+// {
+// 	if (led == 1) {
+// 		/* Pull up to switch off */
+// 		px4_arch_gpiowrite(GPIO_LED1, true);
+// 	}
+// }

@@ -31,10 +31,8 @@
  *
  ****************************************************************************/
 
- #include <px4_arch/i2c_hw_description.h>
- 
- constexpr px4_i2c_bus_t px4_i2c_buses[I2C_BUS_MAX_BUS_ITEMS] = {
-     // Bus 2 corresponds to Hardware I2C1 (GPIO 6 & 7)
-     // Used for External GPS Magnetometer
-     initI2CBusExternal(2),
- };
+#include <px4_arch/i2c_hw_description.h>
+
+constexpr px4_i2c_bus_t px4_i2c_buses[I2C_BUS_MAX_BUS_ITEMS] = {
+	initI2CBusExternal(2),
+};

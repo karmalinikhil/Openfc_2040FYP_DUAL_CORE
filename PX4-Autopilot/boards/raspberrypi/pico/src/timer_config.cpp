@@ -31,36 +31,19 @@
  *
  ****************************************************************************/
 
- #include <px4_arch/io_timer_hw_description.h>
- 
- // RP2040 PWM Slices correspond to "Timers" here.
- // Slice 2 handles GPIO 20/21
- // Slice 3 handles GPIO 22/23
- // Slice 4 handles GPIO 24/25 (We use 25 for Buzzer)
- 
- constexpr io_timers_t io_timers[MAX_IO_TIMERS] = {
-     initIOTimer(Timer::Timer2), // For ESC 0 & 1
-     initIOTimer(Timer::Timer3), // For ESC 2 & 3
-     initIOTimer(Timer::Timer4), // For Buzzer
- };
- 
- constexpr timer_io_channels_t timer_io_channels[MAX_TIMER_IO_CHANNELS] = {
-     // ESC 0 -> GPIO 20
-     initIOTimerChannel(io_timers, {Timer::Timer2, Timer::ChannelA}, {GPIO::Pin20}),
-     
-     // ESC 1 -> GPIO 21
-     initIOTimerChannel(io_timers, {Timer::Timer2, Timer::ChannelB}, {GPIO::Pin21}),
-     
-     // ESC 2 -> GPIO 22
-     initIOTimerChannel(io_timers, {Timer::Timer3, Timer::ChannelA}, {GPIO::Pin22}),
-     
-     // ESC 3 -> GPIO 23
-     initIOTimerChannel(io_timers, {Timer::Timer3, Timer::ChannelB}, {GPIO::Pin23}),
-     
-     // Buzzer -> GPIO 25
-     // Note: GPIO 24 is Channel A (Used for RC Input), so we use Channel B for Buzzer
-     initIOTimerChannel(io_timers, {Timer::Timer4, Timer::ChannelB}, {GPIO::Pin25}),
- };
- 
- constexpr io_timers_channel_mapping_t io_timers_channel_mapping = initIOTimerChannelMapping(io_timers,
-         timer_io_channels);
+#include <px4_arch/io_timer_hw_description.h>
+
+constexpr io_timers_t io_timers[MAX_IO_TIMERS] = {
+	initIOTimer(Timer::Timer1),
+	initIOTimer(Timer::Timer2),
+};
+
+constexpr timer_io_channels_t timer_io_channels[MAX_TIMER_IO_CHANNELS] = {
+	initIOTimerChannel(io_timers, {Timer::Timer1, Timer::ChannelA}, {GPIO::Pin18}),
+	initIOTimerChannel(io_timers, {Timer::Timer1, Timer::ChannelB}, {GPIO::Pin19}),
+	initIOTimerChannel(io_timers, {Timer::Timer2, Timer::ChannelA}, {GPIO::Pin20}),
+	initIOTimerChannel(io_timers, {Timer::Timer2, Timer::ChannelB}, {GPIO::Pin21}),
+};
+
+constexpr io_timers_channel_mapping_t io_timers_channel_mapping = initIOTimerChannelMapping(io_timers,
+		timer_io_channels);
