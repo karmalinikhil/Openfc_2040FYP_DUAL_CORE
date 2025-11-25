@@ -1,7 +1,0 @@
-/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/picotool/picotool
-/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/picotool/picotoolTargets.cmake
-/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/picotool/picotoolTargets-release.cmake
-/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/picotool/picotoolConfig.cmake
-/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/picotool/picotoolConfigVersion.cmake
-/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/picotool/enc_bootloader.elf
-/home/rishi-patil/Desktop/FYP/picoprobe/build-pico2/_deps/picotool/enc_bootloader_mbedtls.elf

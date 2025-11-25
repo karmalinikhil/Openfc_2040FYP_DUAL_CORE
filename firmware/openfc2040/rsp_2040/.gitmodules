@@ -1,4 +1,0 @@
-[submodule "px4-autopilot"]
-	path = px4-autopilot
-	url = https://github.com/PX4/PX4-Autopilot.git
-	branch = main
