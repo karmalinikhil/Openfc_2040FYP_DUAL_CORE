@@ -31,8 +31,8 @@ Keep contributions focused, documented, and easy to review. Follow the steps bel
   # Convert and flash
   cp build/raspberrypi_pico_default/raspberrypi_pico_default.uf2 /media/$USER/RPI-RP2/
   
-  # Test via UART console
-  picocom -b 115200 /dev/ttyUSB0
+  # Test via USB ACM console
+  picocom -b 115200 /dev/ttyACM0
   ```
 - If hardware testing cannot be done, state it clearly in the commit.
 
