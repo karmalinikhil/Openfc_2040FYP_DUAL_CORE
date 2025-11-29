@@ -1,66 +1,129 @@
 # OpenFC2040 Flight Controller (RP2040 + PX4)
 
-This repo contains scripts and documentation to build, flash, and debug PX4 firmware for the OpenFC2040 board. Start here, then dive into the linked docs for deeper explanations.
+An open-source flight controller based on the RP2040 microcontroller running PX4 Autopilot firmware. This repository contains the PX4-Autopilot source with board-specific configurations for the OpenFC2040 hardware.
+
+## Project Status
+
+**Working Features:**
+- ✅ PX4 firmware builds and runs on RP2040
+- ✅ UART console (GPIO0/GPIO1) at 115200 baud
+- ✅ DPS310 barometer via SPI (19Hz, pressure/temperature readings)
+- ✅ RGB LED control via `led_control` command (GPIO13/14/15, active-low)
+- ✅ MAVLink communication ready
+
+**In Progress:**
+- 🔄 ICM42688 IMU integration
+- 🔄 QGroundControl connection testing
+
+## Repository Structure
+
+```
+OpenFC2040_FYP/
+├── PX4-Autopilot/           # PX4 firmware source (submodule)
+│   └── boards/raspberrypi/pico/  # RP2040 board config
+├── docs/                    # Documentation
+│   ├── DPS310_SPI_FIX_REPORT.md  # Barometer SPI fix details
+│   ├── PIN_CONNECTIONS.md        # Hardware pin mapping
+│   ├── DEBUG_GUIDE.md            # SWD debugging guide
+│   └── ...
+├── peripheral_testing/      # Standalone sensor test code
+└── CONTRIBUTING.md
+```
 
 ## Quick Start
 
-### 1. Install prerequisites (Ubuntu/debian)
+### 1. Install Prerequisites (Ubuntu/Debian)
 
 ```bash
 sudo apt update
-sudo apt install gcc-arm-none-eabi gdb-multiarch cmake ninja-build git python3 python3-pip openocd
-sudo apt install picocom   # optional serial console
+sudo apt install gcc-arm-none-eabi gdb-multiarch cmake ninja-build git python3 python3-pip
+sudo apt install picocom   # optional: serial console
 ```
 
-### 2. Configure the workspace (run once)
+### 2. Clone and Initialize
 
 ```bash
+git clone --recursive https://github.com/Rispats/OpenFC2040_FYP.git
 cd OpenFC2040_FYP
-./scripts/setup_workspace.sh
 ```
 
-### 3. Build PX4 firmware
+### 3. Build PX4 Firmware
 
 ```bash
-cd firmware/openfc2040
-./scripts/build.sh
+cd PX4-Autopilot
+make raspberrypi_pico_default
 ```
 
-### 4. Flash the board (PX4 build)
+### 4. Flash the Board
 
 ```bash
-# hold BOOTSEL while connecting USB to enter the UF2 bootloader
-./scripts/flash.sh
+# Convert .bin to .uf2 (if needed)
+python3 /tmp/bin2uf2.py build/raspberrypi_pico_default/raspberrypi_pico_default.bin \
+                         build/raspberrypi_pico_default/raspberrypi_pico_default.uf2
+
+# Hold BOOTSEL while connecting USB, then:
+cp build/raspberrypi_pico_default/raspberrypi_pico_default.uf2 /media/$USER/RPI-RP2/
 ```
 
-### 5. Access the console
+### 5. Access the Console
 
 ```bash
-# recommended: UART on GPIO0/GPIO1 via USB-to-Serial adapter
+# UART console via USB-to-Serial adapter on GPIO0 (TX) / GPIO1 (RX)
 picocom -b 115200 /dev/ttyUSB0
 ```
 
-## Debugging PX4
-- SWD (Picoprobe/Debugprobe + OpenOCD + GDB): see `docs/DEBUG_GUIDE.md`
-- Debug helpers and configs live in `firmware/openfc2040/rsp_2040/debug/`
-- UART console steps: `firmware/openfc2040/rsp_2040/NEXT_STEPS_UART_CONSOLE.md`
+## Hardware Connections
 
-## Peripheral Test Firmware (Pico SDK)
-- Location: `firmware/test-firmware/peripherals_testing`
-- Build and flash scripts live in that directory; follow its `README.md`
-- Useful for validating LEDs, sensors, PWM, and console before running full PX4
+| Function | RP2040 GPIO | Notes |
+|----------|-------------|-------|
+| UART TX  | GPIO 0      | Console output |
+| UART RX  | GPIO 1      | Console input |
+| SPI SCK  | GPIO 2      | Sensors |
+| SPI MOSI | GPIO 3      | Sensors |
+| SPI MISO | GPIO 4      | Sensors |
+| BARO CS  | GPIO 5      | DPS310 |
+| IMU CS   | GPIO 9      | ICM42688 |
+| LED RED  | GPIO 13     | Active-low |
+| LED GREEN| GPIO 14     | Active-low |
+| LED BLUE | GPIO 15     | Active-low |
 
-## Deeper Background
-- `docs/PROJECT_CONTEXT.md` - How the PX4 build, toolchain, and repo are structured
-- `docs/PIN_CONNECTIONS.md` - Complete pin mapping
-- `docs/DEBUG_GUIDE.md` - SWD wiring, OpenOCD, and GDB walkthrough
-- `docs/GIT_QUICK_REFERENCE.md` - Day-to-day Git workflow
-- `CONTRIBUTING.md` - Collaboration guidelines
+See `docs/PIN_CONNECTIONS.md` for complete pinout.
+
+## NSH Commands
+
+```bash
+# Check barometer
+nsh> dps310 -s start
+nsh> listener sensor_baro
+
+# Control LEDs
+nsh> led_control on -c red
+nsh> led_control on -c green
+nsh> led_control on -c blue
+nsh> led_control on -c white
+nsh> led_control test
+
+# System info
+nsh> ver all
+nsh> top
+```
+
+## Documentation
+
+- `docs/DPS310_SPI_FIX_REPORT.md` - How the barometer SPI issue was fixed
+- `docs/PIN_CONNECTIONS.md` - Complete hardware pin mapping
+- `docs/DEBUG_GUIDE.md` - SWD debugging with Picoprobe/OpenOCD
+- `docs/PROJECT_CONTEXT.md` - Build system and architecture overview
+- `docs/GIT_QUICK_REFERENCE.md` - Git workflow tips
 
 ## Notes
-- Commands assume you run them from the repo root unless otherwise stated.
-- Avoid editing generated folders such as `px4-autopilot` or `build` outputs directly.
+
+- The RP2040 board uses ~6.5% of flash (~1.1MB firmware)
+- UART console is the primary debug interface (USB CDC not yet working)
+- All RGB LEDs are active-low (write LOW to turn ON)
 
 ## License and Credits
-- PX4 Autopilot: BSD-3-Clause; NuttX: Apache-2.0
-- Hardware design: OpenFC2040 by Vatsal Joshi (@vxj9800)
+
+- **PX4 Autopilot**: BSD-3-Clause
+- **NuttX RTOS**: Apache-2.0
+- **Hardware Design**: OpenFC2040 by Vatsal Joshi (@vxj9800)
