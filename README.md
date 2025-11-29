@@ -7,12 +7,11 @@ An open-source flight controller based on the RP2040 microcontroller running PX4
 **Working Features:**
 - ✅ PX4 firmware builds and runs on RP2040
 - ✅ UART console (GPIO0/GPIO1) at 115200 baud
-- ✅ DPS310 barometer via SPI (19Hz, pressure/temperature readings)
 - ✅ RGB LED control via `led_control` command (GPIO13/14/15, active-low)
 - ✅ MAVLink communication ready
 
 **In Progress:**
-- 🔄 ICM42688 IMU integration
+- 🔄 DPS310 Baro and ICM42688 IMU integration
 - 🔄 QGroundControl connection testing
 
 ## Repository Structure
@@ -91,11 +90,6 @@ See `docs/PIN_CONNECTIONS.md` for complete pinout.
 
 ## NSH Commands
 
-```bash
-# Check barometer
-nsh> dps310 -s start
-nsh> listener sensor_baro
-
 # Control LEDs
 nsh> led_control on -c red
 nsh> led_control on -c green
@@ -110,7 +104,6 @@ nsh> top
 
 ## Documentation
 
-- `docs/DPS310_SPI_FIX_REPORT.md` - How the barometer SPI issue was fixed
 - `docs/PIN_CONNECTIONS.md` - Complete hardware pin mapping
 - `docs/DEBUG_GUIDE.md` - SWD debugging with Picoprobe/OpenOCD
 - `docs/PROJECT_CONTEXT.md` - Build system and architecture overview
