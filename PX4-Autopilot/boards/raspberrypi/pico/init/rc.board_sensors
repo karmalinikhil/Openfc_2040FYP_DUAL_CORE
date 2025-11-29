@@ -3,10 +3,18 @@
 # board specific sensors init
 #------------------------------------------------------------------------------
 
+# 1. Start ADC
+# Necessary for Battery Voltage (GPIO27) and Current (GPIO28) monitoring
 board_adc start
 
-# try starting an mpu9250 IMU on external SPI
-mpu9250 start -S
+# 2. Start IMU: Using LSM9DS1 driver as placeholder
+# The LSM6DS3TR-C is similar but has no native PX4 driver
+# -s : Internal SPI bus
+# -R : Rotation (0 = ROTATION_NONE)
+# NOTE: This may not work correctly - LSM9DS1 and LSM6DS3 have different register maps!
+# A proper LSM6DS3 driver needs to be ported for production use
+lsm9ds1 start -s -R 0
 
-# try starting a bmp280 barometer on external SPI
-bmp280 start -S
+# 3. Start Barometer: DPS310
+# -s : Internal SPI bus
+dps310 start -s

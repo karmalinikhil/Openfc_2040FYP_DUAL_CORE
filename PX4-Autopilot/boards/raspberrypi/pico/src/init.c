@@ -45,351 +45,373 @@
  * Included Files
  ****************************************************************************/
 
-#include <px4_platform_common/px4_config.h>
-#include <px4_platform_common/tasks.h>
+ #include <px4_platform_common/px4_config.h>
+ #include <px4_platform_common/tasks.h>
+ 
+ #include <stdbool.h>
+ #include <stdio.h>
+ #include <string.h>
+ #include <debug.h>
+ #include <errno.h>
+ #include <syslog.h>
+ 
+ #include <nuttx/board.h>
+ #include <nuttx/spi/spi.h>
+ #include <nuttx/i2c/i2c_master.h>
+ #include <nuttx/mmcsd.h>
+ #include <nuttx/analog/adc.h>
+ #include <nuttx/mm/gran.h>
+ 
+ #include "board_config.h"
+ #include <rp2040_uart.h>
+ 
+ #include <arch/board/board.h>
+ 
+ #include <drivers/drv_hrt.h>
+ #include <drivers/drv_board_led.h>
+ 
+ #include <systemlib/px4_macros.h>
+ 
+ #include <px4_arch/io_timer.h>
+ #include <px4_platform_common/init.h>
+ #include <px4_platform/board_dma_alloc.h>
 
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-#include <debug.h>
-#include <errno.h>
-#include <syslog.h>
+ #include <rp2040_spi.h>
+ #include <rp2040_gpio.h>
+ 
+ __BEGIN_DECLS
+ extern void led_init(void);
+ extern void led_on(int led);
+ extern void led_off(int led);
+ __END_DECLS
 
-#include <nuttx/board.h>
-#include <nuttx/spi/spi.h>
-#include <nuttx/i2c/i2c_master.h>
-#include <nuttx/mmcsd.h>
-#include <nuttx/analog/adc.h>
-#include <nuttx/mm/gran.h>
+ /****************************************************************************
+  * Name: rp2040_spiinitialize
+  * 
+  * Description:
+  *   Configure GPIO pins for SPI0 and SPI1 functions.
+  *   On RP2040, each GPIO can be mapped to multiple peripherals.
+  *   We must explicitly set the function to SPI.
+  *
+  *   SPI0 (SD Card): CLK=18, MOSI=19, MISO=16, CS=17
+  *   SPI1 (Sensors): CLK=10, MOSI=11, MISO=8, IMU_CS=9, BARO_CS=12
+  ****************************************************************************/
+ void rp2040_spiinitialize(void)
+ {
+     /* ------------------------------------------------------------------- */
+     /* SPI0: SD Card                                                       */
+     /* CLK: GPIO18, MOSI: GPIO19, MISO: GPIO16, CS: GPIO17                */
+     /* ------------------------------------------------------------------- */
+ #ifdef CONFIG_RP2040_SPI0
+     /* Configure SPI0 pins for SPI function */
+     rp2040_gpio_set_function(16, RP2040_GPIO_FUNC_SPI);  /* MISO/RX */
+     rp2040_gpio_set_function(18, RP2040_GPIO_FUNC_SPI);  /* SCK */
+     rp2040_gpio_set_function(19, RP2040_GPIO_FUNC_SPI);  /* MOSI/TX */
+     
+     /* CS pin as GPIO output, active low, initially high (deselected) */
+     rp2040_gpio_init(17);
+     rp2040_gpio_setdir(17, true);   /* Output */
+     rp2040_gpio_put(17, true);      /* High = deselected */
+ #endif
 
-#include "board_config.h"
-#include <rp2040_uart.h>
+     /* ------------------------------------------------------------------- */
+     /* SPI1: Internal Sensors (IMU LSM6DS3 + Baro DPS310)                  */
+     /* CLK: GPIO10, MOSI: GPIO11, MISO: GPIO8                             */
+     /* IMU CS: GPIO9, BARO CS: GPIO12                                      */
+     /* ------------------------------------------------------------------- */
+ #ifdef CONFIG_RP2040_SPI1
+     /* Configure SPI1 pins for SPI function */
+     rp2040_gpio_set_function(8, RP2040_GPIO_FUNC_SPI);   /* MISO/RX */
+     rp2040_gpio_set_function(10, RP2040_GPIO_FUNC_SPI);  /* SCK */
+     rp2040_gpio_set_function(11, RP2040_GPIO_FUNC_SPI);  /* MOSI/TX */
+     
+     /* IMU CS pin (GPIO9) as GPIO output, active low, initially high */
+     rp2040_gpio_init(9);
+     rp2040_gpio_setdir(9, true);    /* Output */
+     rp2040_gpio_put(9, true);       /* High = deselected */
+     
+     /* Baro CS pin (GPIO12) as GPIO output, active low, initially high */
+     rp2040_gpio_init(12);
+     rp2040_gpio_setdir(12, true);   /* Output */
+     rp2040_gpio_put(12, true);      /* High = deselected */
+ #endif
 
-#include <arch/board/board.h>
+     syslog(LOG_INFO, "[boot] SPI GPIO pins configured\n");
+ }
 
-#include <drivers/drv_hrt.h>
-#include <drivers/drv_board_led.h>
+ /****************************************************************************
+  * SPI Register Callbacks - Required by NuttX SPI driver for SD card
+  * media change detection (CONFIG_MMCSD_SPI)
+  ****************************************************************************/
+ #ifdef CONFIG_RP2040_SPI0
+ int rp2040_spi0register(FAR struct spi_dev_s *dev,
+                         spi_mediachange_t callback, FAR void *arg)
+ {
+     /* No media change detection on SPI0 (SD Card) - stub */
+     (void)dev;
+     (void)callback;
+     (void)arg;
+     return OK;
+ }
+ #endif
 
-#include <systemlib/px4_macros.h>
+ #ifdef CONFIG_RP2040_SPI1
+ int rp2040_spi1register(FAR struct spi_dev_s *dev,
+                         spi_mediachange_t callback, FAR void *arg)
+ {
+     /* No media change detection on SPI1 (Sensors) - stub */
+     (void)dev;
+     (void)callback;
+     (void)arg;
+     return OK;
+ }
+ #endif
 
-#include <px4_arch/io_timer.h>
-#include <px4_platform_common/init.h>
-#include <px4_platform/board_dma_alloc.h>
+ /****************************************************************************
+  * SPI Chip Select Functions - Required by NuttX SPI driver
+  * 
+  * These functions are called by the NuttX SPI driver to assert/deassert
+  * the chip select line before/after SPI transactions.
+  * 
+  * For SPI0 (SD Card): Only one device, use CONFIG_RP2040_SPI0_CS_GPIO (17)
+  * For SPI1 (Sensors): Multiple devices - IMU on GPIO9, Baro on GPIO12
+  *                     Use devid to determine which CS to control
+  ****************************************************************************/
 
-# if defined(FLASH_BASED_PARAMS)
-#  include <parameters/flashparams/flashfs.h>
-#endif
+ /* GPIO definitions for SPI chip selects */
+ #define GPIO_SPI0_CS_SD     17   /* SD Card CS */
+ #define GPIO_SPI1_CS_IMU    9    /* IMU (LSM6DS3) CS */
+ #define GPIO_SPI1_CS_BARO   12   /* Barometer (DPS310) CS */
 
-/****************************************************************************
- * Pre-Processor Definitions
- ****************************************************************************/
+ #ifdef CONFIG_RP2040_SPI0
+ void rp2040_spi0select(FAR struct spi_dev_s *dev, uint32_t devid, bool selected)
+ {
+     (void)dev;
+     syslog(LOG_DEBUG, "SPI0 select: devid=%lu selected=%d\n", devid, selected);
+     
+     /* SD Card is the only device on SPI0 */
+     rp2040_gpio_put(GPIO_SPI0_CS_SD, !selected);  /* Active LOW */
+ }
 
-/**
- * Ideally we'd be able to get these from arm_internal.h,
- * but since we want to be able to disable the NuttX use
- * of leds for system indication at will and there is no
- * separate switch, we need to build independent of the
- * CONFIG_ARCH_LEDS configuration switch.
- */
-__BEGIN_DECLS
-extern void led_init(void);
-extern void led_on(int led);
-extern void led_off(int led);
-__END_DECLS
+ uint8_t rp2040_spi0status(FAR struct spi_dev_s *dev, uint32_t devid)
+ {
+     (void)dev;
+     (void)devid;
+     /* Always report card present for now */
+     return SPI_STATUS_PRESENT;
+ }
+ #endif
 
-/****************************************************************************
- * Protected Functions
- ****************************************************************************/
-/****************************************************************************
- * Public Functions
- ****************************************************************************/
-/************************************************************************************
- * Name: board_peripheral_reset
- *
- * Description:
- *
- ************************************************************************************/
-__EXPORT void board_peripheral_reset(int ms)
-{
-	UNUSED(ms);
-}
+ /* Device type definitions from PX4 drv_sensor.h */
+ #define DRV_IMU_DEVTYPE_ST_LSM9DS1_AG   0x44
+ #define DRV_BARO_DEVTYPE_DPS310         0x68
 
-/************************************************************************************
- * Name: board_on_reset
- *
- * Description:
- * Optionally provided function called on entry to board_system_reset
- * It should perform any house keeping prior to the rest.
- *
- * status - 1 if resetting to boot loader
- *          0 if just resetting
- *
- ************************************************************************************/
-__EXPORT void board_on_reset(int status)
-{
-	// Configure the GPIO pins to outputs and keep them low.
-	for (int i = 0; i < DIRECT_PWM_OUTPUT_CHANNELS; ++i) {
-		px4_arch_configgpio(io_timer_channel_get_gpio_output(i));
-	}
+ #ifdef CONFIG_RP2040_SPI1
+ void rp2040_spi1select(FAR struct spi_dev_s *dev, uint32_t devid, bool selected)
+ {
+     (void)dev;
+     
+     /* 
+      * PX4 SPI device ID format: 
+      *   Bits 16-31: PX4_SPI_DEVICE_ID (0x1000)
+      *   Bits 8-15:  Instance counter (for multiple devices of same type)
+      *   Bits 0-7:   Device type (DRV_xxx_DEVTYPE_xxx)
+      * 
+      * For internal SPI bus with initSPIDevice:
+      *   IMU (LSM9DS1):  devid = 0x10000044
+      *   Baro (DPS310):  devid = 0x10000068
+      */
+     
+     /* Extract device type from lower 8 bits */
+     uint8_t device_type = devid & 0xFF;
+     
+     syslog(LOG_DEBUG, "SPI1 select: devid=0x%08lx type=0x%02x selected=%d\n", 
+            devid, device_type, selected);
+     
+     /* First, deselect both devices */
+     if (!selected) {
+         rp2040_gpio_put(GPIO_SPI1_CS_IMU, true);   /* Deselect IMU */
+         rp2040_gpio_put(GPIO_SPI1_CS_BARO, true);  /* Deselect Baro */
+         return;
+     }
+     
+     /* Select the appropriate device based on device type */
+     switch (device_type) {
+     case DRV_IMU_DEVTYPE_ST_LSM9DS1_AG:  /* 0x44 - IMU */
+         rp2040_gpio_put(GPIO_SPI1_CS_IMU, false);  /* Select IMU */
+         rp2040_gpio_put(GPIO_SPI1_CS_BARO, true);  /* Ensure Baro deselected */
+         syslog(LOG_DEBUG, "SPI1: Selected IMU (GPIO9 LOW)\n");
+         break;
+     case DRV_BARO_DEVTYPE_DPS310:  /* 0x68 - Barometer */
+         rp2040_gpio_put(GPIO_SPI1_CS_IMU, true);   /* Ensure IMU deselected */
+         rp2040_gpio_put(GPIO_SPI1_CS_BARO, false); /* Select Baro */
+         syslog(LOG_DEBUG, "SPI1: Selected Baro (GPIO12 LOW)\n");
+         break;
+     default:
+         /* Unknown device, deselect all */
+         rp2040_gpio_put(GPIO_SPI1_CS_IMU, true);
+         rp2040_gpio_put(GPIO_SPI1_CS_BARO, true);
+         syslog(LOG_WARNING, "SPI1: Unknown device type 0x%02x (devid=0x%08lx)\n", 
+                device_type, devid);
+         break;
+     }
+ }
 
-	/*
-	 * On resets invoked from system (not boot) insure we establish a low
-	 * output state (discharge the pins) on PWM pins before they become inputs.
-	 */
+ uint8_t rp2040_spi1status(FAR struct spi_dev_s *dev, uint32_t devid)
+ {
+     (void)dev;
+     (void)devid;
+     /* Sensors are always present */
+     return SPI_STATUS_PRESENT;
+ }
+ #endif
 
-	if (status >= 0) {
-		up_mdelay(400);
-	}
-}
-
-/************************************************************************************
- * Name: board_read_VBUS_state
- *
- * Description:
- *   All boards must provide a way to read the state of VBUS, this my be simple
- *   digital input on a GPIO. Or something more complicated like a Analong input
- *   or reading a bit from a USB controller register.
- *
- * Returns -  0 if connected.
- *
- ************************************************************************************/
-
-int board_read_VBUS_state(void)
-{
-	return BOARD_ADC_USB_CONNECTED ? 0 : 1;
-}
-
-/****************************************************************************
- * Name: rp2040_boardearlyinitialize
- *
- * Description:
- *
- * This function is taken directly from nuttx's rp2040_boardinitialize.c
- ****************************************************************************/
-
-void rp2040_boardearlyinitialize(void)
-{
-	/* Set default UART pin */
-#if defined(CONFIG_RP2040_UART0) && CONFIG_RP2040_UART0_GPIO >= 0
-	rp2040_gpio_set_function(CONFIG_RP2040_UART0_GPIO, RP2040_GPIO_FUNC_UART);     /* TX */
-	rp2040_gpio_set_function(CONFIG_RP2040_UART0_GPIO + 1, RP2040_GPIO_FUNC_UART);     /* RX */
-# ifdef CONFIG_SERIAL_OFLOWCONTROL
-	rp2040_gpio_set_function(CONFIG_RP2040_UART0_GPIO + 2, RP2040_GPIO_FUNC_UART);     /* CTS */
-# endif /* CONFIG_SERIAL_OFLOWCONTROL */
-# ifdef CONFIG_SERIAL_IFLOWCONTROL
-	rp2040_gpio_set_function(CONFIG_RP2040_UART0_GPIO + 3, RP2040_GPIO_FUNC_UART);     /* RTS */
-# endif /* CONFIG_SERIAL_IFLOWCONTROL */
-#endif
-
-#if defined(CONFIG_RP2040_UART1) && CONFIG_RP2040_UART1_GPIO >= 0
-	rp2040_gpio_set_function(CONFIG_RP2040_UART1_GPIO, RP2040_GPIO_FUNC_UART);     /* TX */
-	rp2040_gpio_set_function(CONFIG_RP2040_UART1_GPIO + 1, RP2040_GPIO_FUNC_UART);     /* RX */
-# ifdef CONFIG_SERIAL_OFLOWCONTROL
-	rp2040_gpio_set_function(CONFIG_RP2040_UART1_GPIO + 2, RP2040_GPIO_FUNC_UART);     /* CTS */
-# endif /* CONFIG_SERIAL_OFLOWCONTROL */
-# ifdef CONFIG_SERIAL_IFLOWCONTROL
-	rp2040_gpio_set_function(CONFIG_RP2040_UART1_GPIO + 3, RP2040_GPIO_FUNC_UART);     /* RTS */
-# endif /* CONFIG_SERIAL_IFLOWCONTROL */
-#endif
-}
-
-/************************************************************************************
- * Name: rp2040_boardinitialize
- *
- * Description:
- *   All architectures must provide the following entry point. This entry point
- *   is called early in the initialization -- after all memory has been configured
- *   and mapped but before any devices have been initialized.
- *
- ************************************************************************************/
-
-__EXPORT void
-rp2040_boardinitialize(void)
-{
-	// /* Reset all PWM to Low outputs */
-	// board_on_reset(-1);
-
-	// /* configure LEDs */
-	board_autoled_initialize();
-
-	// Disable IE and enable OD on GPIO 26-29 (These are ADC Pins)
-	// Do this only for the channels configured in board_config.h
-	rp2040_gpioconfig(27 | GPIO_FUN(RP2040_GPIO_FUNC_NULL));		/* BATT_VOLTAGE_SENS */
-	clrbits_reg32(RP2040_PADS_BANK0_GPIO_IE, RP2040_PADS_BANK0_GPIO(27));	/* BATT_VOLTAGE_SENS */
-	setbits_reg32(RP2040_PADS_BANK0_GPIO_OD, RP2040_PADS_BANK0_GPIO(27));	/* BATT_VOLTAGE_SENS */
-	rp2040_gpioconfig(28 | GPIO_FUN(RP2040_GPIO_FUNC_NULL));		/* BATT_VOLTAGE_SENS */
-	clrbits_reg32(RP2040_PADS_BANK0_GPIO_IE, RP2040_PADS_BANK0_GPIO(28));	/* BATT_CURRENT_SENS */
-	setbits_reg32(RP2040_PADS_BANK0_GPIO_OD, RP2040_PADS_BANK0_GPIO(28));	/* BATT_CURRENT_SENS */
-
-	/* Set default I2C pin */
-#if defined(CONFIG_RP2040_I2C0) && CONFIG_RP2040_I2C0_GPIO >= 0
-	rp2040_gpio_set_function(CONFIG_RP2040_I2C0_GPIO, RP2040_GPIO_FUNC_I2C);      /* SDA */
-	rp2040_gpio_set_function(CONFIG_RP2040_I2C0_GPIO + 1, RP2040_GPIO_FUNC_I2C);      /* SCL */
-	rp2040_gpio_set_pulls(CONFIG_RP2040_I2C0_GPIO, true, false);  /* Pull up */
-	rp2040_gpio_set_pulls(CONFIG_RP2040_I2C0_GPIO + 1, true, false);
-#endif
-
-#if defined(CONFIG_RP2040_I2C1) &&  CONFIG_RP2040_I2C1_GPIO >= 0
-	rp2040_gpio_set_function(CONFIG_RP2040_I2C1_GPIO, RP2040_GPIO_FUNC_I2C);      /* SDA */
-	rp2040_gpio_set_function(CONFIG_RP2040_I2C1_GPIO + 1, RP2040_GPIO_FUNC_I2C);      /* SCL */
-	rp2040_gpio_set_pulls(CONFIG_RP2040_I2C1_GPIO, true, false);  /* Pull up */
-	rp2040_gpio_set_pulls(CONFIG_RP2040_I2C1_GPIO + 1, true, false);
-#endif
-
-	// // TODO: power peripherals
-	// ///* configure power supply control/sense pins */
-	// //stm32_configgpio(GPIO_PERIPH_3V3_EN);
-	// //stm32_configgpio(GPIO_VDD_BRICK_VALID);
-	// //stm32_configgpio(GPIO_VDD_USB_VALID);
-
-	// // TODO: 3v3 Sensor?
-	// ///* Start with Sensor voltage off We will enable it
-	// // * in board_app_initialize
-	// // */
-	// //stm32_configgpio(GPIO_VDD_3V3_SENSORS_EN);
-
-	// // TODO: SBUS inversion? SPEK power?
-	// //stm32_configgpio(GPIO_SBUS_INV);
-	// //stm32_configgpio(GPIO_SPEKTRUM_PWR_EN);
-
-	// // TODO: $$$ Unused?
-	// //stm32_configgpio(GPIO_8266_GPIO0);
-	// //stm32_configgpio(GPIO_8266_PD);
-	// //stm32_configgpio(GPIO_8266_RST);
-
-	// /* Safety - led don in led driver */
-
-	// // TODO: unused?
-	// //stm32_configgpio(GPIO_BTN_SAFETY);
-
-	// // TODO: RSSI
-	// //stm32_configgpio(GPIO_RSSI_IN);
-
-	// stm32_configgpio(GPIO_PPM_IN);
-
-	/* configure SPI all interfaces GPIO */
-	rp2040_spiinitialize();
-
-}
-
-/****************************************************************************
- * Name: board_app_initialize
- *
- * Description:
- *   Perform application specific initialization.  This function is never
- *   called directly from application code, but only indirectly via the
- *   (non-standard) boardctl() interface using the command BOARDIOC_INIT.
- *
- * Input Parameters:
- *   arg - The boardctl() argument is passed to the board_app_initialize()
- *         implementation without modification.  The argument has no
- *         meaning to NuttX; the meaning of the argument is a contract
- *         between the board-specific initalization logic and the the
- *         matching application logic.  The value cold be such things as a
- *         mode enumeration value, a set of DIP switch switch settings, a
- *         pointer to configuration data read from a file or serial FLASH,
- *         or whatever you would like to do with it.  Every implementation
- *         should accept zero/NULL as a default configuration.
- *
- * Returned Value:
- *   Zero (OK) is returned on success; a negated errno value is returned on
- *   any failure to indicate the nature of the failure.
- *
- ****************************************************************************/
-
-// static struct spi_dev_s *spi1;
-static struct spi_dev_s *spi2;
-
-__EXPORT int board_app_initialize(uintptr_t arg)
-{
-	px4_platform_init();
-
-	/* configure the DMA allocator */				// Needs to be figured out
-
-	if (board_dma_alloc_init() < 0) {
-		syslog(LOG_ERR, "DMA alloc FAILED\n");
-	}
-
-	/* set up the serial DMA polling */	// RP2040 nuttx implementation doesn't have serial_dma_poll function yet.
-	// static struct hrt_call serial_dma_call;
-	// struct timespec ts;
-
-	// /*
-	//  * Poll at 1ms intervals for received bytes that have not triggered
-	//  * a DMA event.
-	//  */
-	// ts.tv_sec = 0;
-	// ts.tv_nsec = 1000000;
-
-	// hrt_call_every(&serial_dma_call,
-	// 	       ts_to_abstime(&ts),
-	// 	       ts_to_abstime(&ts),
-	// 	       (hrt_callout)stm32_serial_dma_poll,
-	// 	       NULL);
-
-	/* initial LED state */
-	drv_led_start();
-	led_on(LED_BLUE);
-
-	// if (board_hardfault_init(2, true) != 0) {		// Needs to be figured out as RP2040 doesn't have BBSRAM.
-	// 	led_off(LED_BLUE);
-	// }
-
-
-	/* Configure SPI-based devices */
-
-	// // SPI1: SDCard					// Will be configured later
-	// /* Get the SPI port for the microSD slot */
-	// spi1 = rp2040_spibus_initialize(CONFIG_NSH_MMCSDSPIPORTNO); // PX4_BUS_NUMBER_FROM_PX4(1)
-
-	// if (!spi1) {
-	// 	syslog(LOG_ERR, "[boot] FAILED to initialize SPI port %d\n", CONFIG_NSH_MMCSDSPIPORTNO);
-	// 	led_off(LED_BLUE);
-	// }
-
-	// /* Now bind the SPI interface to the MMCSD driver */
-	// int result = mmcsd_spislotinitialize(CONFIG_NSH_MMCSDMINOR, CONFIG_NSH_MMCSDSLOTNO, spi1);
-
-	// if (result != OK) {
-	// 	led_off(LED_BLUE);
-	// 	syslog(LOG_ERR, "[boot] FAILED to bind SPI port 1 to the MMCSD driver\n");
-	// }
-
-	// up_udelay(20);
-
-	// SPI2: MPU9250 and BMP280
-	spi2 = rp2040_spibus_initialize(PX4_BUS_NUMBER_FROM_PX4(2));
-
-	if (!spi2) {
-		syslog(LOG_ERR, "[boot] FAILED to initialize SPI port 2\n");
-		led_off(LED_BLUE);
-	}
-
-	/* Default SPI2 to 1MHz and de-assert the known chip selects. */
-	SPI_SETFREQUENCY(spi2, 10000000);
-	SPI_SETBITS(spi2, 8);
-	SPI_SETMODE(spi2, SPIDEV_MODE3);
-	up_udelay(20);
-
-// #if defined(FLASH_BASED_PARAMS)					// This probably doesn't relate to RP2040 right now.
-// 	static sector_descriptor_t params_sector_map[] = {
-// 		{1, 16 * 1024, 0x08004000},
-// 		{0, 0, 0},
-// 	};
-
-// 	/* Initialize the flashfs layer to use heap allocated memory */
-// 	result = parameter_flashfs_init(params_sector_map, NULL, 0);
-
-// 	if (result != OK) {
-// 		syslog(LOG_ERR, "[boot] FAILED to init params in FLASH %d\n", result);
-// 		led_off(LED_AMBER);
-// 	}
-
-// #endif
-
-	/* Configure the HW based on the manifest */
-
-	px4_platform_configure();
-
-	return OK;
-}
+ /************************************************************************************
+  * Name: board_peripheral_reset
+  ************************************************************************************/
+ __EXPORT void board_peripheral_reset(int ms)
+ {
+     UNUSED(ms);
+ }
+ 
+ /************************************************************************************
+  * Name: board_on_reset
+  ************************************************************************************/
+ __EXPORT void board_on_reset(int status)
+ {
+     // Configure the PWM GPIO pins to outputs and keep them low.
+     for (int i = 0; i < DIRECT_PWM_OUTPUT_CHANNELS; ++i) {
+         px4_arch_configgpio(io_timer_channel_get_gpio_output(i));
+     }
+ 
+     if (status >= 0) {
+         up_mdelay(400);
+     }
+ }
+ 
+ /************************************************************************************
+  * Name: board_read_VBUS_state
+  * Returns -  0 if connected.
+  ************************************************************************************/
+ int board_read_VBUS_state(void)
+ {
+     // Based on board_config.h, this is hardcoded to TRUE (0 returned = connected)
+     return BOARD_ADC_USB_CONNECTED ? 0 : 1;
+ }
+ 
+ /****************************************************************************
+  * Name: rp2040_boardearlyinitialize
+  ****************************************************************************/
+ void rp2040_boardearlyinitialize(void)
+ {
+     /* Set default UART pin functions */
+ #if defined(CONFIG_RP2040_UART0) && CONFIG_RP2040_UART0_GPIO >= 0
+     rp2040_gpio_set_function(CONFIG_RP2040_UART0_GPIO, RP2040_GPIO_FUNC_UART);     /* TX */
+     rp2040_gpio_set_function(CONFIG_RP2040_UART0_GPIO + 1, RP2040_GPIO_FUNC_UART);  /* RX */
+ #endif
+ 
+ #if defined(CONFIG_RP2040_UART1) && CONFIG_RP2040_UART1_GPIO >= 0
+     rp2040_gpio_set_function(CONFIG_RP2040_UART1_GPIO, RP2040_GPIO_FUNC_UART);     /* TX */
+     rp2040_gpio_set_function(CONFIG_RP2040_UART1_GPIO + 1, RP2040_GPIO_FUNC_UART);  /* RX */
+ #endif
+ }
+ 
+ /************************************************************************************
+  * Name: rp2040_boardinitialize
+  ************************************************************************************/
+ __EXPORT void
+ rp2040_boardinitialize(void)
+ {
+     /* configure LEDs */
+     board_autoled_initialize();
+ 
+     /* * Configure ADC Pins (GPIO 27 & 28)
+      * We must disable the digital input/output buffers for these pins to work as Analog
+      */
+     // GPIO 27: Battery Voltage
+     rp2040_gpioconfig(27 | GPIO_FUN(RP2040_GPIO_FUNC_NULL));        
+     clrbits_reg32(RP2040_PADS_BANK0_GPIO_IE, RP2040_PADS_BANK0_GPIO(27));    
+     setbits_reg32(RP2040_PADS_BANK0_GPIO_OD, RP2040_PADS_BANK0_GPIO(27));    
+ 
+     // GPIO 28: Battery Current
+     rp2040_gpioconfig(28 | GPIO_FUN(RP2040_GPIO_FUNC_NULL));        
+     clrbits_reg32(RP2040_PADS_BANK0_GPIO_IE, RP2040_PADS_BANK0_GPIO(28));    
+     setbits_reg32(RP2040_PADS_BANK0_GPIO_OD, RP2040_PADS_BANK0_GPIO(28));    
+ 
+     /* Set default I2C1 pin (For GPS Mag) */
+     // Ensure this matches board_config.h (GPIO 6/7)
+ #if defined(CONFIG_RP2040_I2C1) &&  CONFIG_RP2040_I2C1_GPIO >= 0
+     rp2040_gpio_set_function(CONFIG_RP2040_I2C1_GPIO, RP2040_GPIO_FUNC_I2C);      /* SDA */
+     rp2040_gpio_set_function(CONFIG_RP2040_I2C1_GPIO + 1, RP2040_GPIO_FUNC_I2C);  /* SCL */
+     rp2040_gpio_set_pulls(CONFIG_RP2040_I2C1_GPIO, true, false);  /* Pull up */
+     rp2040_gpio_set_pulls(CONFIG_RP2040_I2C1_GPIO + 1, true, false);
+ #endif
+ 
+     /* Configure SPI GPIOs (Calls the function in board_config.h) */
+     rp2040_spiinitialize();
+ }
+ 
+ /****************************************************************************
+  * Name: board_app_initialize
+  ****************************************************************************/
+ 
+ static struct spi_dev_s *spi_sd;
+ static struct spi_dev_s *spi_sensors;
+ 
+ __EXPORT int board_app_initialize(uintptr_t arg)
+ {
+     px4_platform_init();
+ 
+     /* configure the DMA allocator */
+     if (board_dma_alloc_init() < 0) {
+         syslog(LOG_ERR, "DMA alloc FAILED\n");
+     }
+ 
+     /* initial LED state - turn on RED as "alive" indicator */
+     drv_led_start();
+     led_on(LED_RED);
+ 
+     /* --------------------------------------------------------- */
+     /* Initialize SPI0 - SD CARD                                 */
+     /* --------------------------------------------------------- */
+     // Hardware SPI0 is often Index 0 in NuttX RP2040 drivers
+     spi_sd = rp2040_spibus_initialize(0); 
+ 
+     if (!spi_sd) {
+         syslog(LOG_ERR, "[boot] FAILED to initialize SPI0 for SD Card\n");
+         led_off(LED_BLUE);
+     } else {
+         /* Now bind the SPI interface to the MMCSD driver */
+         // Assuming Minor 0, Slot 0
+         int result = mmcsd_spislotinitialize(0, 0, spi_sd);
+         if (result != OK) {
+             led_off(LED_BLUE);
+             syslog(LOG_ERR, "[boot] FAILED to bind SPI0 to the MMCSD driver\n");
+         }
+     }
+ 
+     up_udelay(20);
+ 
+     /* --------------------------------------------------------- */
+     /* Initialize SPI1 - SENSORS (IMU/Baro)                      */
+     /* --------------------------------------------------------- */
+     // Hardware SPI1 is Index 1
+     spi_sensors = rp2040_spibus_initialize(1);
+ 
+     if (!spi_sensors) {
+         syslog(LOG_ERR, "[boot] FAILED to initialize SPI1 for Sensors\n");
+         led_off(LED_BLUE);
+     } else {
+         /* Default SPI1 to 10MHz */
+         SPI_SETFREQUENCY(spi_sensors, 10000000);
+         SPI_SETBITS(spi_sensors, 8);
+         SPI_SETMODE(spi_sensors, SPIDEV_MODE3);
+     }
+     
+     up_udelay(20);
+ 
+     /* Configure the HW based on the manifest */
+     px4_platform_configure();
+ 
+     return OK;
+ }

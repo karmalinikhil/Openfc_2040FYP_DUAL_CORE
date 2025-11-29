@@ -34,86 +34,201 @@
 /**
  * @file led.c
  *
- * board LED backend.
+ * OpenFC2040 LED driver
+ * RGB LED on GPIO 13/14/15 (active low)
+ * 
+ * PX4 LED mapping (from drv_board_led.h):
+ * LED_BLUE  = 0 -> GPIO15
+ * LED_RED   = 1 -> GPIO14  
+ * LED_GREEN = 3 -> GPIO13
+ * 
+ * Also provides led_pwm_servo functions for rgbled_pwm driver
  */
 
 #include <px4_platform_common/px4_config.h>
-
 #include <stdbool.h>
-
+#include <nuttx/board.h>
+#include <arch/board/board.h>
 #include "board_config.h"
 
-#include <arch/board/board.h>
+// LED state tracking
+static bool _led_state[4] = {false, false, false, false};
+
+// PWM values for rgbled_pwm driver (0-255)
+static uint8_t _led_pwm[3] = {0, 0, 0};  // R, G, B
+static bool _led_pwm_initialized = false;
 
 /*
- * Ideally we'd be able to get these from arm_internal.h,
- * but since we want to be able to disable the NuttX use
- * of leds for system indication at will and there is no
- * separate switch, we need to build independent of the
- * CONFIG_ARCH_LEDS configuration switch.
+ * LED polarity: true = active low (write false to turn ON)
+ *               false = active high (write true to turn ON)
+ * Based on hardware testing - all LEDs are active LOW
  */
-__BEGIN_DECLS
-extern void led_init(void);
-extern void led_on(int led);
-extern void led_off(int led);
-extern void led_toggle(int led);
-__END_DECLS
+#define LED_RED_ACTIVE_LOW    true
+#define LED_GREEN_ACTIVE_LOW  true
+#define LED_BLUE_ACTIVE_LOW   true
 
-static uint32_t g_ledmap[] = {
-	GPIO_LED_BLUE,		// Onboard led on raspberrypi pico
-};
+static inline void led_write_red(bool on) {
+    px4_arch_gpiowrite(GPIO_LED_RED, LED_RED_ACTIVE_LOW ? !on : on);
+}
+static inline void led_write_green(bool on) {
+    px4_arch_gpiowrite(GPIO_LED_GREEN, LED_GREEN_ACTIVE_LOW ? !on : on);
+}
+static inline void led_write_blue(bool on) {
+    px4_arch_gpiowrite(GPIO_LED_BLUE, LED_BLUE_ACTIVE_LOW ? !on : on);
+}
 
 __EXPORT void led_init(void)
 {
-	/* Configure LED GPIOs for output */
-	for (size_t l = 0; l < (sizeof(g_ledmap) / sizeof(g_ledmap[0])); l++) {
-		px4_arch_configgpio(g_ledmap[l]);
-	}
-}
-
-static void phy_set_led(int led, bool state)
-{
-	/* Pull Down to switch on */
-	if (led == 0) {
-		px4_arch_gpiowrite(g_ledmap[led], state);
-	}
+    // Configure RGB LED GPIOs as outputs
+    px4_arch_configgpio(GPIO_LED_RED);
+    px4_arch_configgpio(GPIO_LED_GREEN);
+    px4_arch_configgpio(GPIO_LED_BLUE);
+    
+    // Turn all LEDs off initially
+    led_write_red(false);
+    led_write_green(false);
+    led_write_blue(false);
+    
+    _led_pwm_initialized = true;
 }
 
 __EXPORT void led_on(int led)
 {
-	phy_set_led(led, true);
+    switch (led) {
+    case 0: // LED_BLUE
+        led_write_blue(true);
+        _led_state[0] = true;
+        break;
+    case 1: // LED_RED
+        led_write_red(true);
+        _led_state[1] = true;
+        break;
+    case 3: // LED_GREEN
+        led_write_green(true);
+        _led_state[3] = true;
+        break;
+    default:
+        break;
+    }
 }
 
 __EXPORT void led_off(int led)
 {
-	phy_set_led(led, false);
+    switch (led) {
+    case 0: // LED_BLUE
+        led_write_blue(false);
+        _led_state[0] = false;
+        break;
+    case 1: // LED_RED
+        led_write_red(false);
+        _led_state[1] = false;
+        break;
+    case 3: // LED_GREEN
+        led_write_green(false);
+        _led_state[3] = false;
+        break;
+    default:
+        break;
+    }
 }
 
 __EXPORT void led_toggle(int led)
 {
-	if (led == 0) {
-		phy_set_led(led, !px4_arch_gpioread(g_ledmap[led]));
-	}
+    switch (led) {
+    case 0:
+        _led_state[0] ? led_off(0) : led_on(0);
+        break;
+    case 1:
+        _led_state[1] ? led_off(1) : led_on(1);
+        break;
+    case 3:
+        _led_state[3] ? led_off(3) : led_on(3);
+        break;
+    default:
+        break;
+    }
 }
 
-// __EXPORT void board_autoled_initialize()
-// {
-// 	/* Configure LED1 GPIO for output */
-// 	px4_arch_configgpio(GPIO_LED1);
-// }
+/**
+ * NuttX auto LED functions for boot indication
+ */
+void board_autoled_initialize_impl(void)
+{
+    led_init();
+}
 
-// __EXPORT void board_autoled_on(int led)
-// {
-// 	if (led == 1) {
-// 		/* Pull down to switch on */
-// 		px4_arch_gpiowrite(GPIO_LED1, false);
-// 	}
-// }
+void board_autoled_on_impl(int led)
+{
+    led_on(led);
+}
 
-// __EXPORT void board_autoled_off(int led)
-// {
-// 	if (led == 1) {
-// 		/* Pull up to switch off */
-// 		px4_arch_gpiowrite(GPIO_LED1, true);
-// 	}
-// }
+void board_autoled_off_impl(int led)
+{
+    led_off(led);
+}
+
+/**
+ * LED PWM servo functions for rgbled_pwm driver
+ * These simulate PWM with simple on/off based on value threshold
+ * Channel 0 = Red, Channel 1 = Green, Channel 2 = Blue
+ */
+
+__EXPORT int led_pwm_servo_init(void)
+{
+    if (!_led_pwm_initialized) {
+        led_init();
+    }
+    
+    // Turn all LEDs off
+    _led_pwm[0] = 0;
+    _led_pwm[1] = 0;
+    _led_pwm[2] = 0;
+    
+    led_write_red(false);
+    led_write_green(false);
+    led_write_blue(false);
+    
+    return 0;
+}
+
+__EXPORT void led_pwm_servo_deinit(void)
+{
+    // Turn all LEDs off
+    led_write_red(false);
+    led_write_green(false);
+    led_write_blue(false);
+}
+
+__EXPORT int led_pwm_servo_set(unsigned channel, uint8_t value)
+{
+    if (channel > 2) {
+        return -1;
+    }
+    
+    _led_pwm[channel] = value;
+    
+    // For GPIO-based LEDs, any value > 0 turns LED on
+    bool on = (value > 0);
+    
+    switch (channel) {
+    case 0: // Red
+        led_write_red(on);
+        break;
+    case 1: // Green
+        led_write_green(on);
+        break;
+    case 2: // Blue
+        led_write_blue(on);
+        break;
+    }
+    
+    return 0;
+}
+
+__EXPORT unsigned led_pwm_servo_get(unsigned channel)
+{
+    if (channel > 2) {
+        return 0;
+    }
+    return _led_pwm[channel];
+}

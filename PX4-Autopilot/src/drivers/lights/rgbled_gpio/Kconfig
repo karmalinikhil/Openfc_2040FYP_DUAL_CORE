@@ -1,0 +1,5 @@
+menuconfig DRIVERS_LIGHTS_RGBLED_GPIO
+	bool "rgbled_gpio"
+	default n
+	---help---
+		Enable support for GPIO-based RGB LED

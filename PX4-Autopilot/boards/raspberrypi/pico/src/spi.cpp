@@ -31,18 +31,35 @@
  *
  ****************************************************************************/
 
-#include <px4_arch/spi_hw_description.h>
-#include <drivers/drv_sensor.h>
-#include <nuttx/spi/spi.h>
+ #include <px4_arch/spi_hw_description.h>
+ #include <drivers/drv_sensor.h>
+ #include <nuttx/spi/spi.h>
+ 
+ constexpr px4_spi_bus_t px4_spi_buses[SPI_BUS_MAX_BUS_ITEMS] = {
+     // ---------------------------------------------------------
+     // Bus 0: SD Card
+     // ---------------------------------------------------------
+     // Mapped to RP2040 SPI0:
+     // CLK: GPIO18, MOSI: GPIO19, MISO: GPIO16
+     initSPIBus(SPI::Bus::SPI0, {
+         initSPIDevice(SPIDEV_MMCSD(0), SPI::CS{GPIO::Pin17}), // CS/DAT3 is GPIO17
+     }),
 
-constexpr px4_spi_bus_t px4_spi_buses[SPI_BUS_MAX_BUS_ITEMS] = {
-	initSPIBus(SPI::Bus::SPI0, {
-		initSPIDevice(SPIDEV_MMCSD(0), SPI::CS{GPIO::Pin5}),
-	}),
-	initSPIBusExternal(SPI::Bus::SPI1, {
-		initSPIConfigExternal(SPI::CS{GPIO::Pin13}),
-		initSPIConfigExternal(SPI::CS{GPIO::Pin14}),
-	}),
-};
+     // ---------------------------------------------------------
+     // Bus 1: Internal Sensors (IMU + Barometer)
+     // ---------------------------------------------------------
+     // Mapped to RP2040 SPI1:
+     // CLK: GPIO10, MOSI: GPIO11, MISO: GPIO8
+     // Using initSPIBus (not External) for internal sensors
+     initSPIBus(SPI::Bus::SPI1, {
+         // IMU: LSM6DS3TR-C - using LSM9DS1 driver as closest match
+         // CS is GPIO 9
+         initSPIDevice(DRV_IMU_DEVTYPE_ST_LSM9DS1_AG, SPI::CS{GPIO::Pin9}),
 
-static constexpr bool unused = validateSPIConfig(px4_spi_buses);
+         // Barometer: DPS310
+         // CS is GPIO 12
+         initSPIDevice(DRV_BARO_DEVTYPE_DPS310, SPI::CS{GPIO::Pin12}),
+     }),
+ };
+ 
+ static constexpr bool unused = validateSPIConfig(px4_spi_buses);

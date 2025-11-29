@@ -18,10 +18,17 @@
  *
  ****************************************************************************/
 
+
 MEMORY
 {
-  flash (rx) : ORIGIN = 0x10000000, LENGTH = 2048K
-  sram (rwx) : ORIGIN = 0x20000000, LENGTH = 264K
+    /* OpenFC2040 uses W25Q128JV (128Mbit = 16MB)
+     * ORIGIN: 0x10000000 (XIP Base)
+     * LENGTH: 16384K (16MB)
+     */
+    flash (rx) : ORIGIN = 0x10000000, LENGTH = 16384K
+    
+    /* RP2040 SRAM (264KB) */
+    sram (rwx) : ORIGIN = 0x20000000, LENGTH = 264K
 }
 
 OUTPUT_ARCH(arm)

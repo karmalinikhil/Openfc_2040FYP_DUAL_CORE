@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2018-2021 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2024 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,10 +31,11 @@
 #
 ############################################################################
 
-#add_subdirectory(neopixel) # requires board support (BOARD_HAS_N_S_RGB_LED)
-add_subdirectory(rgbled)
-add_subdirectory(rgbled_gpio)
-add_subdirectory(rgbled_ncp5623c)
-add_subdirectory(rgbled_is31fl3195)
-add_subdirectory(rgbled_lp5562)
-#add_subdirectory(rgbled_pwm) # requires board support (BOARD_HAS_LED_PWM/BOARD_HAS_UI_LED_PWM)
+px4_add_module(
+	MODULE drivers__rgbled_gpio
+	MAIN rgbled_gpio
+	SRCS
+		rgbled_gpio.cpp
+	DEPENDS
+		led
+)

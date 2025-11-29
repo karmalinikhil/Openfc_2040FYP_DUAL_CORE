@@ -3,5 +3,5 @@
 # board specific MAVLink startup script.
 #------------------------------------------------------------------------------
 
-# Start MAVLink on the USB port
-mavlink start -d /dev/ttyUSB0
+# Start MAVLink on the USB CDC ACM port
+mavlink start -d /dev/ttyACM0 -b 57600 -m normal

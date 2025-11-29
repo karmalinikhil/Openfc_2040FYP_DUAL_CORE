@@ -31,19 +31,31 @@
  *
  ****************************************************************************/
 
-#include <px4_arch/io_timer_hw_description.h>
-
-constexpr io_timers_t io_timers[MAX_IO_TIMERS] = {
-	initIOTimer(Timer::Timer1),
-	initIOTimer(Timer::Timer2),
-};
-
-constexpr timer_io_channels_t timer_io_channels[MAX_TIMER_IO_CHANNELS] = {
-	initIOTimerChannel(io_timers, {Timer::Timer1, Timer::ChannelA}, {GPIO::Pin18}),
-	initIOTimerChannel(io_timers, {Timer::Timer1, Timer::ChannelB}, {GPIO::Pin19}),
-	initIOTimerChannel(io_timers, {Timer::Timer2, Timer::ChannelA}, {GPIO::Pin20}),
-	initIOTimerChannel(io_timers, {Timer::Timer2, Timer::ChannelB}, {GPIO::Pin21}),
-};
-
-constexpr io_timers_channel_mapping_t io_timers_channel_mapping = initIOTimerChannelMapping(io_timers,
-		timer_io_channels);
+ #include <px4_arch/io_timer_hw_description.h>
+ 
+ // RP2040 PWM Slices correspond to "Timers" here.
+ // Slice 2 handles GPIO 20/21 (ESC 0, 1)
+ // Slice 3 handles GPIO 22/23 (ESC 2, 3)
+ // Note: Buzzer on GPIO25 is handled separately via tone_alarm driver, not here
+ 
+ constexpr io_timers_t io_timers[MAX_IO_TIMERS] = {
+     initIOTimer(Timer::Timer2), // For ESC 0 & 1
+     initIOTimer(Timer::Timer3), // For ESC 2 & 3
+ };
+ 
+ constexpr timer_io_channels_t timer_io_channels[MAX_TIMER_IO_CHANNELS] = {
+     // ESC 0 -> GPIO 20
+     initIOTimerChannel(io_timers, {Timer::Timer2, Timer::ChannelA}, {GPIO::Pin20}),
+     
+     // ESC 1 -> GPIO 21
+     initIOTimerChannel(io_timers, {Timer::Timer2, Timer::ChannelB}, {GPIO::Pin21}),
+     
+     // ESC 2 -> GPIO 22
+     initIOTimerChannel(io_timers, {Timer::Timer3, Timer::ChannelA}, {GPIO::Pin22}),
+     
+     // ESC 3 -> GPIO 23
+     initIOTimerChannel(io_timers, {Timer::Timer3, Timer::ChannelB}, {GPIO::Pin23}),
+ };
+ 
+ constexpr io_timers_channel_mapping_t io_timers_channel_mapping = initIOTimerChannelMapping(io_timers,
+         timer_io_channels);
