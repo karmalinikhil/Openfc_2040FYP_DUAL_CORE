@@ -6,9 +6,10 @@ CONFIG_BOARD_CONSTRAINED_MEMORY=y
 # ---------------------------------------------------------
 # Serial Port Mappings (RP2040 has 2 UARTs)
 # ---------------------------------------------------------
-# UART0 (Telemetry on GPIO 0/1): /dev/ttyS0
-# UART1 (GPS on GPIO 4/5):       /dev/ttyS1
-CONFIG_BOARD_SERIAL_TEL1="/dev/ttyS0"
+# UART0 (GPIO 0/1): /dev/ttyS0 - Used for NSH console (not telemetry)
+# UART1 (GPS on GPIO 4/5): /dev/ttyS1
+# Telemetry runs on USB CDC (/dev/ttyACM0) via MAVLink
+# CONFIG_BOARD_SERIAL_TEL1 is not set - UART0 reserved for NSH
 CONFIG_BOARD_SERIAL_GPS1="/dev/ttyS1"
 
 # ---------------------------------------------------------

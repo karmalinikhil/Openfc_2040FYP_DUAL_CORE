@@ -136,10 +136,9 @@
      rp2040_gpio_put(12, true);      /* High = deselected */
  #endif
 
-     syslog(LOG_INFO, "[boot] SPI GPIO pins configured\n");
- }
-
- /****************************************************************************
+     /* Uncomment for debugging SPI initialization */
+     // syslog(LOG_INFO, "[boot] SPI GPIO pins configured\n");
+} /****************************************************************************
   * SPI Register Callbacks - Required by NuttX SPI driver for SD card
   * media change detection (CONFIG_MMCSD_SPI)
   ****************************************************************************/
@@ -187,7 +186,10 @@
  void rp2040_spi0select(FAR struct spi_dev_s *dev, uint32_t devid, bool selected)
  {
      (void)dev;
-     syslog(LOG_DEBUG, "SPI0 select: devid=%lu selected=%d\n", devid, selected);
+     (void)devid;
+     
+     /* Uncomment for debugging SPI0 chip select */
+     // syslog(LOG_DEBUG, "SPI0 select: devid=%lu selected=%d\n", devid, selected);
      
      /* SD Card is the only device on SPI0 */
      rp2040_gpio_put(GPIO_SPI0_CS_SD, !selected);  /* Active LOW */
@@ -225,8 +227,9 @@
      /* Extract device type from lower 8 bits */
      uint8_t device_type = devid & 0xFF;
      
-     syslog(LOG_DEBUG, "SPI1 select: devid=0x%08lx type=0x%02x selected=%d\n", 
-            devid, device_type, selected);
+     /* Uncomment for debugging SPI1 chip select (WARNING: very verbose!) */
+     // syslog(LOG_DEBUG, "SPI1 select: devid=0x%08lx type=0x%02x selected=%d\n", 
+     //        devid, device_type, selected);
      
      /* First, deselect both devices */
      if (!selected) {
@@ -240,19 +243,19 @@
      case DRV_IMU_DEVTYPE_ST_LSM9DS1_AG:  /* 0x44 - IMU */
          rp2040_gpio_put(GPIO_SPI1_CS_IMU, false);  /* Select IMU */
          rp2040_gpio_put(GPIO_SPI1_CS_BARO, true);  /* Ensure Baro deselected */
-         syslog(LOG_DEBUG, "SPI1: Selected IMU (GPIO9 LOW)\n");
+         // syslog(LOG_DEBUG, "SPI1: Selected IMU (GPIO9 LOW)\n");
          break;
      case DRV_BARO_DEVTYPE_DPS310:  /* 0x68 - Barometer */
          rp2040_gpio_put(GPIO_SPI1_CS_IMU, true);   /* Ensure IMU deselected */
          rp2040_gpio_put(GPIO_SPI1_CS_BARO, false); /* Select Baro */
-         syslog(LOG_DEBUG, "SPI1: Selected Baro (GPIO12 LOW)\n");
+         // syslog(LOG_DEBUG, "SPI1: Selected Baro (GPIO12 LOW)\n");
          break;
      default:
          /* Unknown device, deselect all */
          rp2040_gpio_put(GPIO_SPI1_CS_IMU, true);
          rp2040_gpio_put(GPIO_SPI1_CS_BARO, true);
-         syslog(LOG_WARNING, "SPI1: Unknown device type 0x%02x (devid=0x%08lx)\n", 
-                device_type, devid);
+         // syslog(LOG_WARNING, "SPI1: Unknown device type 0x%02x (devid=0x%08lx)\n", 
+         //        device_type, devid);
          break;
      }
  }

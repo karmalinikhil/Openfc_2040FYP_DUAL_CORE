@@ -12,3 +12,10 @@ param set-default CBRK_SUPPLY_CHK 894281
 # Start RGB LED driver and set initial color to white
 rgbled_gpio start
 led_control on -c white
+
+# Delay to let system boot complete before starting NSH on UART
+sleep 2
+
+# Start NSH terminal on UART0 (Telemetry Port: GPIO0/GPIO1)
+# Connect via USB-to-TTL adapter at 57600 baud
+nshterm /dev/ttyS0 &
