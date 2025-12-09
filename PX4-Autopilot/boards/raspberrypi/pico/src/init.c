@@ -205,7 +205,7 @@
  #endif
 
  /* Device type definitions from PX4 drv_sensor.h */
- #define DRV_IMU_DEVTYPE_ST_LSM9DS1_AG   0x44
+ #define DRV_IMU_DEVTYPE_ST_LSM6DS3      0xE9  /* LSM6DS3TR-C IMU */
  #define DRV_BARO_DEVTYPE_DPS310         0x68
 
  #ifdef CONFIG_RP2040_SPI1
@@ -220,7 +220,7 @@
       *   Bits 0-7:   Device type (DRV_xxx_DEVTYPE_xxx)
       * 
       * For internal SPI bus with initSPIDevice:
-      *   IMU (LSM9DS1):  devid = 0x10000044
+      *   IMU (LSM6DS3):  devid = 0x100000E9
       *   Baro (DPS310):  devid = 0x10000068
       */
      
@@ -240,7 +240,7 @@
      
      /* Select the appropriate device based on device type */
      switch (device_type) {
-     case DRV_IMU_DEVTYPE_ST_LSM9DS1_AG:  /* 0x44 - IMU */
+     case DRV_IMU_DEVTYPE_ST_LSM6DS3:  /* 0xE9 - IMU (LSM6DS3TR-C) */
          rp2040_gpio_put(GPIO_SPI1_CS_IMU, false);  /* Select IMU */
          rp2040_gpio_put(GPIO_SPI1_CS_BARO, true);  /* Ensure Baro deselected */
          // syslog(LOG_DEBUG, "SPI1: Selected IMU (GPIO9 LOW)\n");

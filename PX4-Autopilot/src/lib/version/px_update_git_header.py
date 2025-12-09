@@ -115,30 +115,56 @@ header += f"""
 
 # Mavlink
 if (os.path.exists('src/modules/mavlink/mavlink/.git')):
-    mavlink_git_version = subprocess.check_output('git rev-parse --verify HEAD'.split(),
-                                      cwd='src/modules/mavlink/mavlink', stderr=subprocess.STDOUT).decode('utf-8').strip()
-    mavlink_git_version_short = mavlink_git_version[0:16]
+    try:
+        mavlink_git_version = subprocess.check_output('git rev-parse --verify HEAD'.split(),
+                                          cwd='src/modules/mavlink/mavlink', stderr=subprocess.STDOUT).decode('utf-8').strip()
+        mavlink_git_version_short = mavlink_git_version[0:16]
+    except:
+        mavlink_git_version = "0000000000000000000000000000000000000000"
+        mavlink_git_version_short = "0000000000000000"
 
     header += f"""
 #define MAVLINK_LIB_GIT_VERSION_STR  "{mavlink_git_version}"
 #define MAVLINK_LIB_GIT_VERSION_BINARY 0x{mavlink_git_version_short}
 """
+else:
+    # Not a git submodule - use default values
+    header += """
+#define MAVLINK_LIB_GIT_VERSION_STR  "0000000000000000000000000000000000000000"
+#define MAVLINK_LIB_GIT_VERSION_BINARY 0x0000000000000000
+"""
 
 
 # NuttX
 if (os.path.exists('platforms/nuttx/NuttX/nuttx/.git')):
-    nuttx_git_tags = subprocess.check_output('git -c versionsort.suffix=- tag --sort=v:refname'.split(),
-                                  cwd='platforms/nuttx/NuttX/nuttx', stderr=subprocess.STDOUT).decode('utf-8').strip()
-    nuttx_git_tag = re.findall(r'nuttx-[0-9]+\.[0-9]+\.[0-9]+', nuttx_git_tags)[-1].replace("nuttx-", "v")
-    nuttx_git_tag = re.sub('-.*', '.0', nuttx_git_tag)
-    nuttx_git_version = subprocess.check_output('git rev-parse --verify HEAD'.split(),
+    try:
+        nuttx_git_tags = subprocess.check_output('git -c versionsort.suffix=- tag --sort=v:refname'.split(),
                                       cwd='platforms/nuttx/NuttX/nuttx', stderr=subprocess.STDOUT).decode('utf-8').strip()
-    nuttx_git_version_short = nuttx_git_version[0:16]
+        nuttx_tag_matches = re.findall(r'nuttx-[0-9]+\.[0-9]+\.[0-9]+', nuttx_git_tags)
+        if nuttx_tag_matches:
+            nuttx_git_tag = nuttx_tag_matches[-1].replace("nuttx-", "v")
+        else:
+            nuttx_git_tag = "v12.6.0"  # Default fallback version
+        nuttx_git_tag = re.sub('-.*', '.0', nuttx_git_tag)
+        nuttx_git_version = subprocess.check_output('git rev-parse --verify HEAD'.split(),
+                                          cwd='platforms/nuttx/NuttX/nuttx', stderr=subprocess.STDOUT).decode('utf-8').strip()
+        nuttx_git_version_short = nuttx_git_version[0:16]
+    except:
+        nuttx_git_tag = "v12.6.0"
+        nuttx_git_version = "0000000000000000000000000000000000000000"
+        nuttx_git_version_short = "0000000000000000"
 
     header += f"""
 #define NUTTX_GIT_VERSION_STR  "{nuttx_git_version}"
 #define NUTTX_GIT_VERSION_BINARY 0x{nuttx_git_version_short}
 #define NUTTX_GIT_TAG_STR  "{nuttx_git_tag}"
+"""
+else:
+    # Not a git submodule - use default values
+    header += """
+#define NUTTX_GIT_VERSION_STR  "0000000000000000000000000000000000000000"
+#define NUTTX_GIT_VERSION_BINARY 0x0000000000000000
+#define NUTTX_GIT_TAG_STR  "v12.6.0"
 """
 
 

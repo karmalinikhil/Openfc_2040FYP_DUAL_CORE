@@ -78,14 +78,30 @@ function(px4_add_git_submodule)
 	string(REPLACE "/" "_" NAME ${PATH})
 	string(REPLACE "." "_" NAME ${NAME})
 
-	add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/git_init_${NAME}.stamp
-		COMMAND Tools/check_submodules.sh ${REL_PATH}
-		COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/git_init_${NAME}.stamp
-		DEPENDS ${PX4_SOURCE_DIR}/.gitmodules ${PATH}/.git
-		COMMENT "git submodule ${REL_PATH}"
-		WORKING_DIRECTORY ${PX4_SOURCE_DIR}
-		USES_TERMINAL
-		)
+	# Check if this is a standalone repo (no submodules) - just create stamp without git checks
+	if(IS_ABSOLUTE ${PATH})
+		set(ABS_PATH ${PATH})
+	else()
+		set(ABS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${PATH})
+	endif()
+
+	if(EXISTS ${ABS_PATH} AND NOT EXISTS ${ABS_PATH}/.git)
+		# Submodule content exists but not as a git submodule - skip git checks
+		add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/git_init_${NAME}.stamp
+			COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/git_init_${NAME}.stamp
+			COMMENT "Skipping git submodule check for ${REL_PATH} (not a submodule)"
+			WORKING_DIRECTORY ${PX4_SOURCE_DIR}
+			)
+	else()
+		add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/git_init_${NAME}.stamp
+			COMMAND Tools/check_submodules.sh ${REL_PATH}
+			COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/git_init_${NAME}.stamp
+			DEPENDS ${PX4_SOURCE_DIR}/.gitmodules ${PATH}/.git
+			COMMENT "git submodule ${REL_PATH}"
+			WORKING_DIRECTORY ${PX4_SOURCE_DIR}
+			USES_TERMINAL
+			)
+	endif()
 
 	add_custom_target(${TARGET} DEPENDS git_init_${NAME}.stamp)
 endfunction()

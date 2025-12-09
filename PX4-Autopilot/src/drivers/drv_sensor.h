@@ -248,6 +248,8 @@
 #define DRV_BARO_DEVTYPE_AUAV		0xE7
 #define DRV_BARO_DEVTYPE_SPA06          0xE8
 
+#define DRV_IMU_DEVTYPE_ST_LSM6DS3      0xE9  // LSM6DS3TR-C IMU (accel + gyro combo)
+
 #define DRV_DEVTYPE_UNUSED		0xff
 
 #endif /* _DRV_SENSOR_H */

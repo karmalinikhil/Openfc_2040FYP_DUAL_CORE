@@ -27,11 +27,8 @@ CONFIG_DRIVERS_RC_INPUT=y
 # Sensors (OpenFC2040 Specific)
 # ---------------------------------------------------------
 # Internal IMU: LSM6DS3TR-C
-# NOTE: LSM6DS3 driver does not exist in PX4 v1.16!
-# Need to either: 1) Port a driver, 2) Use different IMU, 3) Test with LSM9DS1 driver
-# CONFIG_DRIVERS_IMU_ST_LSM6DS3=y
-# Temporarily using LSM9DS1 - may partially work due to similar register set
-CONFIG_DRIVERS_IMU_ST_LSM9DS1=y
+# Native driver support for LSM6DS3TR-C IMU
+CONFIG_DRIVERS_IMU_ST_LSM6DS3=y
 
 # Internal Barometer: DPS310
 CONFIG_DRIVERS_BAROMETER_DPS310=y
