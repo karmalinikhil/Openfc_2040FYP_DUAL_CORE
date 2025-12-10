@@ -122,18 +122,19 @@ private:
 		FIFO_READ,
 	} _state{STATE::RESET};
 
-	uint16_t _fifo_empty_interval_us{1250}; // default 1250 us / 800 Hz transfer interval
+	uint16_t _fifo_empty_interval_us{10000}; // 100 Hz polling interval (10ms)
 	int32_t _fifo_gyro_samples{static_cast<int32_t>(_fifo_empty_interval_us / (1000000 / GYRO_RATE))};
 
 	uint8_t _checked_register{0};
 	static constexpr uint8_t size_register_cfg{6};
 	register_config_t _register_cfg[size_register_cfg] {
 		// Register               | Set bits, Clear bits
+		// Using 833 Hz ODR with FIFO disabled (direct register read)
 		{ Register::CTRL1_XL,     CTRL1_XL_BIT::ODR_XL_833HZ | CTRL1_XL_BIT::FS_XL_16G, 0 },
 		{ Register::CTRL2_G,      CTRL2_G_BIT::ODR_G_833HZ | CTRL2_G_BIT::FS_G_2000DPS, 0 },
 		{ Register::CTRL3_C,      CTRL3_C_BIT::BDU | CTRL3_C_BIT::IF_INC, CTRL3_C_BIT::SW_RESET },
 		{ Register::CTRL4_C,      CTRL4_C_BIT::I2C_disable, 0 },
-		{ Register::FIFO_CTRL3,   FIFO_CTRL3_BIT::DEC_FIFO_GYRO_NO_DEC | FIFO_CTRL3_BIT::DEC_FIFO_XL_NO_DEC, 0 },
-		{ Register::FIFO_CTRL5,   FIFO_CTRL5_BIT::ODR_FIFO_833HZ | FIFO_CTRL5_BIT::FIFO_MODE_CONTINUOUS, 0 },
+		{ Register::FIFO_CTRL3,   0, 0xFF },  // FIFO disabled
+		{ Register::FIFO_CTRL5,   0, 0xFF },  // FIFO bypass mode (disabled)
 	};
 };

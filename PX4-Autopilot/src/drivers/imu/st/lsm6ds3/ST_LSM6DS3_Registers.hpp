@@ -217,8 +217,13 @@ enum STATUS_REG_BIT : uint8_t {
 enum FIFO_CTRL5_BIT : uint8_t {
 	// ODR_FIFO [6:3] - FIFO output data rate
 	// LSM6DS3TR-C datasheet: bits [6:3] encode rate
+	// Available rates: 12.5, 26, 52, 104, 208, 416, 833, 1666 Hz
 	ODR_FIFO_833HZ  = Bit5 | Bit4 | Bit3,  // 0x38: 833 Hz
 	ODR_FIFO_416HZ  = Bit5 | Bit4,         // 0x30: 416 Hz
+	ODR_FIFO_208HZ  = Bit5 | Bit3,         // 0x28: 208 Hz
+	ODR_FIFO_104HZ  = Bit5,                // 0x20: 104 Hz
+	ODR_FIFO_52HZ   = Bit4 | Bit3,         // 0x18: 52 Hz
+	ODR_FIFO_26HZ   = Bit4,                // 0x10: 26 Hz
 
 	// FIFO_MODE [2:0] - FIFO mode selection
 	FIFO_MODE_BYPASS     = 0,                     // 000: Bypass mode

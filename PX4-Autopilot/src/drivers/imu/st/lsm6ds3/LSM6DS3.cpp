@@ -149,11 +149,10 @@ void LSM6DS3::RunImpl()
 
 	case STATE::CONFIGURE:
 		if (Configure()) {
-			// if configure succeeded then start reading from FIFO
+			// if configure succeeded then start reading
 			_state = STATE::FIFO_READ;
-			// Use 50Hz polling - proven to work with NSH on RP2040
-			ScheduleOnInterval(20000, 20000);
-			FIFOReset();
+			// Use 40 Hz polling for RP2040
+			ScheduleOnInterval(25000, 25000);  // 25ms = 40 Hz
 
 		} else {
 			// CONFIGURE not complete
@@ -171,79 +170,71 @@ void LSM6DS3::RunImpl()
 		break;
 
 	case STATE::FIFO_READ: {
-			hrt_abstime timestamp_sample = now;
+			// Simple direct register read - no FIFO complexity
+			// This is the most reliable approach for RP2040
 
-			// always check current FIFO count
-			bool success = false;
+			// Read gyro and accel data directly from output registers
+			struct SensorData {
+				uint8_t cmd{static_cast<uint8_t>(Register::OUTX_L_G) | DIR_READ};
+				uint8_t OUTX_L_G;
+				uint8_t OUTX_H_G;
+				uint8_t OUTY_L_G;
+				uint8_t OUTY_H_G;
+				uint8_t OUTZ_L_G;
+				uint8_t OUTZ_H_G;
+				uint8_t OUTX_L_XL;
+				uint8_t OUTX_H_XL;
+				uint8_t OUTY_L_XL;
+				uint8_t OUTY_H_XL;
+				uint8_t OUTZ_L_XL;
+				uint8_t OUTZ_H_XL;
+			} buffer{};
 
-			// Read FIFO status - LSM6DS3 uses FIFO_STATUS1/2 registers
-			const uint8_t FIFO_STATUS1_val = RegisterRead(Register::FIFO_STATUS1);
-			const uint8_t FIFO_STATUS2_val = RegisterRead(Register::FIFO_STATUS2);
+			if (transfer((uint8_t *)&buffer, (uint8_t *)&buffer, sizeof(buffer)) == PX4_OK) {
+				const int16_t gyro_x = combine(buffer.OUTX_H_G, buffer.OUTX_L_G);
+				const int16_t gyro_y = combine(buffer.OUTY_H_G, buffer.OUTY_L_G);
+				const int16_t gyro_z = combine(buffer.OUTZ_H_G, buffer.OUTZ_L_G);
 
-			// DIFF_FIFO[9:0] = number of unread words (16-bit) in FIFO
-			// Each sample = 6 words (3 gyro + 3 accel), so divide by 6 for sample count
-			uint16_t unread_words = FIFO_STATUS1_val | ((FIFO_STATUS2_val & 0x07) << 8);
-			uint8_t samples = unread_words / 6;  // 6 words per sample set (gyro XYZ + accel XYZ)
+				const int16_t accel_x = combine(buffer.OUTX_H_XL, buffer.OUTX_L_XL);
+				const int16_t accel_y = combine(buffer.OUTY_H_XL, buffer.OUTY_L_XL);
+				const int16_t accel_z = combine(buffer.OUTZ_H_XL, buffer.OUTZ_L_XL);
 
-			if (FIFO_STATUS2_val & FIFO_STATUS2_BIT::FIFO_OVER_RUN) {
-				// overflow
-				FIFOReset();
-				perf_count(_fifo_overflow_perf);
+				// Publish gyro
+				_px4_gyro.update(now, gyro_x, gyro_y, (gyro_z == INT16_MIN) ? INT16_MAX : -gyro_z);
 
-			} else if (samples == 0) {
-				perf_count(_fifo_empty_perf);
+				// Publish accel
+				_px4_accel.update(now, accel_x, accel_y, (accel_z == INT16_MIN) ? INT16_MAX : -accel_z);
+
+				if (_failure_count > 0) {
+					_failure_count--;
+				}
 
 			} else {
-				// tolerate minor jitter, leave sample to next iteration if behind by only 1
-				if (samples == _fifo_gyro_samples + 1) {
-					timestamp_sample -= static_cast<int>(FIFO_SAMPLE_DT);
-					samples--;
-				}
-
-				if (samples > FIFO_MAX_SAMPLES) {
-					// not technically an overflow, but more samples than we expected or can publish
-					FIFOReset();
-					perf_count(_fifo_overflow_perf);
-
-				} else if (samples >= 1) {
-					if (FIFORead(timestamp_sample, samples)) {
-						success = true;
-
-						if (_failure_count > 0) {
-							_failure_count--;
-						}
-					}
-				}
-			}
-
-			if (!success) {
+				perf_count(_bad_transfer_perf);
 				_failure_count++;
-
-				// full reset if things are failing consistently
-				if (_failure_count > 10) {
-					Reset();
-					return;
-				}
 			}
 
-			if (!success || hrt_elapsed_time(&_last_config_check_timestamp) > 100_ms) {
-				// check configuration registers periodically or immediately following any failure
+			// full reset if things are failing consistently
+			if (_failure_count > 10) {
+				Reset();
+				return;
+			}
+
+			// periodically check configuration registers
+			if (hrt_elapsed_time(&_last_config_check_timestamp) > 1000_ms) {
 				if (RegisterCheck(_register_cfg[_checked_register])) {
 					_last_config_check_timestamp = now;
 					_checked_register = (_checked_register + 1) % size_register_cfg;
-
 				} else {
-					// register check failed, force reset
 					perf_count(_bad_register_perf);
 					Reset();
 				}
+			}
 
-			} else {
-				// periodically update temperature (~1 Hz)
-				if (hrt_elapsed_time(&_temperature_update_timestamp) >= 1_s) {
-					UpdateTemperature();
-					_temperature_update_timestamp = now;
-				}
+			// periodically update temperature (~1 Hz)
+			if (hrt_elapsed_time(&_temperature_update_timestamp) >= 1_s) {
+				UpdateTemperature();
+				_temperature_update_timestamp = now;
 			}
 		}
 
@@ -352,64 +343,45 @@ bool LSM6DS3::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 	// Data pattern depends on decimation settings
 	// With both gyro and accel at no decimation: G_X, G_Y, G_Z, XL_X, XL_Y, XL_Z per sample
 
+    // Safety: Limit the number of samples to read to prevent CPU starvation (NSH freeze)
+    // If we have too many samples (e.g. FIFO full), drop them and reset.
+    if (samples > 20) {
+        perf_count(_fifo_overflow_perf);
+        FIFOReset();
+        return false;
+    }
+
 	for (int i = 0; i < samples; i++) {
-		// Read Gyroscope data directly from output registers
-		// (simpler than FIFO for initial implementation)
-		{
-			struct GyroTransferBuffer {
-				uint8_t cmd{static_cast<uint8_t>(Register::OUTX_L_G) | DIR_READ};
-				uint8_t OUTX_L_G{0};
-				uint8_t OUTX_H_G{0};
-				uint8_t OUTY_L_G{0};
-				uint8_t OUTY_H_G{0};
-				uint8_t OUTZ_L_G{0};
-				uint8_t OUTZ_H_G{0};
-			} buffer{};
+		// Read data from FIFO_DATA_OUT_L/H (0x3E/0x3F)
+		// Pattern: G_X, G_Y, G_Z, XL_X, XL_Y, XL_Z (12 bytes)
+		struct FIFOTransferBuffer {
+			uint8_t cmd{static_cast<uint8_t>(Register::FIFO_DATA_OUT_L) | DIR_READ};
+			uint8_t data[12];
+		} buffer{};
 
-			if (transfer((uint8_t *)&buffer, (uint8_t *)&buffer, sizeof(buffer)) == PX4_OK) {
-				const int16_t gyro_x = combine(buffer.OUTX_H_G, buffer.OUTX_L_G);
-				const int16_t gyro_y = combine(buffer.OUTY_H_G, buffer.OUTY_L_G);
-				const int16_t gyro_z = combine(buffer.OUTZ_H_G, buffer.OUTZ_L_G);
+		if (transfer((uint8_t *)&buffer, (uint8_t *)&buffer, sizeof(buffer)) == PX4_OK) {
+			const int16_t gyro_x = combine(buffer.data[1], buffer.data[0]);
+			const int16_t gyro_y = combine(buffer.data[3], buffer.data[2]);
+			const int16_t gyro_z = combine(buffer.data[5], buffer.data[4]);
 
-				// sensor's frame is +x forward, +y left, +z up
-				//  flip y & z to publish right handed with z down (x forward, y right, z down)
-				gyro.x[gyro.samples] = gyro_x;
-				gyro.y[gyro.samples] = gyro_y;
-				gyro.z[gyro.samples] = (gyro_z == INT16_MIN) ? INT16_MAX : -gyro_z;
-				gyro.samples++;
+			const int16_t accel_x = combine(buffer.data[7], buffer.data[6]);
+			const int16_t accel_y = combine(buffer.data[9], buffer.data[8]);
+			const int16_t accel_z = combine(buffer.data[11], buffer.data[10]);
 
-			} else {
-				perf_count(_bad_transfer_perf);
-			}
-		}
+			// sensor's frame is +x forward, +y left, +z up
+			//  flip y & z to publish right handed with z down (x forward, y right, z down)
+			gyro.x[gyro.samples] = gyro_x;
+			gyro.y[gyro.samples] = gyro_y;
+			gyro.z[gyro.samples] = (gyro_z == INT16_MIN) ? INT16_MAX : -gyro_z;
+			gyro.samples++;
 
-		// Read Accelerometer data directly from output registers
-		{
-			struct AccelTransferBuffer {
-				uint8_t cmd{static_cast<uint8_t>(Register::OUTX_L_XL) | DIR_READ};
-				uint8_t OUTX_L_XL{0};
-				uint8_t OUTX_H_XL{0};
-				uint8_t OUTY_L_XL{0};
-				uint8_t OUTY_H_XL{0};
-				uint8_t OUTZ_L_XL{0};
-				uint8_t OUTZ_H_XL{0};
-			} buffer{};
+			accel.x[accel.samples] = accel_x;
+			accel.y[accel.samples] = accel_y;
+			accel.z[accel.samples] = (accel_z == INT16_MIN) ? INT16_MAX : -accel_z;
+			accel.samples++;
 
-			if (transfer((uint8_t *)&buffer, (uint8_t *)&buffer, sizeof(buffer)) == PX4_OK) {
-				const int16_t accel_x = combine(buffer.OUTX_H_XL, buffer.OUTX_L_XL);
-				const int16_t accel_y = combine(buffer.OUTY_H_XL, buffer.OUTY_L_XL);
-				const int16_t accel_z = combine(buffer.OUTZ_H_XL, buffer.OUTZ_L_XL);
-
-				// sensor's frame is +x forward, +y left, +z up
-				//  flip y & z to publish right handed with z down (x forward, y right, z down)
-				accel.x[accel.samples] = accel_x;
-				accel.y[accel.samples] = accel_y;
-				accel.z[accel.samples] = (accel_z == INT16_MIN) ? INT16_MAX : -accel_z;
-				accel.samples++;
-
-			} else {
-				perf_count(_bad_transfer_perf);
-			}
+		} else {
+			perf_count(_bad_transfer_perf);
 		}
 	}
 
