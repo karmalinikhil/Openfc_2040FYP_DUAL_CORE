@@ -9,10 +9,11 @@ An open-source flight controller based on the RP2040 microcontroller running PX4
 - ✅ UART console (GPIO0/GPIO1) at 115200 baud
 - ✅ RGB LED control via `led_control` command (GPIO13/14/15, active-low)
 - ✅ MAVLink communication ready
+- ✅ DPS310 Baro ready
+- ✅ LSM6DS3 IMU ready
 
 **In Progress:**
-- 🔄 DPS310 Baro and ICM42688 IMU integration
-- 🔄 QGroundControl connection testing
+- 🔄 GPS and Magenetometer integration and testing on UART1 of the RP2040
 
 ## Repository Structure
 
