@@ -198,10 +198,12 @@ For reference, the DPS310 on OpenFC2040 uses:
 
 | Signal | RP2040 GPIO | Function     |
 |--------|-------------|--------------|
-| MOSI   | GPIO 3      | SPI TX       |
-| MISO   | GPIO 4      | SPI RX       |
-| SCK    | GPIO 2      | SPI Clock    |
-| CS     | GPIO 5      | Chip Select (active low) |
+| MOSI   | GPIO11      | SPI1 TX (SDA)|
+| MISO   | GPIO8       | SPI1 RX (SDO)|
+| SCK    | GPIO10      | SPI1 Clock   |
+| CS     | GPIO12      | Chip Select (active low) |
+
+**Note:** DPS310 shares SPI1 bus with IMU (LSM6DS3TR-C). Only CS pins differ.
 
   
 

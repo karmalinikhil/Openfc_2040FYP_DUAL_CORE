@@ -122,7 +122,10 @@ private:
 		FIFO_READ,
 	} _state{STATE::RESET};
 
-	uint16_t _fifo_empty_interval_us{10000}; // 100 Hz polling interval (10ms)
+	// RP2040 performance constraint:
+	// Keep IMU driver polling <= 50 Hz to avoid starving NSH / system work queues.
+	// 50 Hz => 20ms interval.
+	uint16_t _fifo_empty_interval_us{20000}; // 50 Hz polling interval (20ms)
 	int32_t _fifo_gyro_samples{static_cast<int32_t>(_fifo_empty_interval_us / (1000000 / GYRO_RATE))};
 
 	uint8_t _checked_register{0};

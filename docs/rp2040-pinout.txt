@@ -1,0 +1,107 @@
+OpenFC2040 Board Pin Mappings
+============================
+
+MICRO USB(To flash and Read/Write data):
+- VCC to  Voltage regulator to generate 3.3V
+- D- to USB_DM
+- D+ to USB_DP
+- GND to GND
+
+LED (RGB):
+- Red:   GPIO13
+- Green: GPIO14
+- Blue:  GPIO15
+
+IMU (LSM6DS3TR-C):
+- CSB:   GPIO9
+- SCK:  GPIO10
+- SDA: GPIO11 (same as SDI)
+- SDO: GPIO8
+
+Barometer (DPS310):
+- CSB:  GPIO12
+- SCK:  GPIO10 (shared with IMU)
+- SDA: GPIO11 (shared with IMU)
+- SDO: GPIO8 (shared with IMU)
+
+
+ESCs (PWM):
+- ESC0: GPIO20
+- ESC1: GPIO21
+- ESC2: GPIO22
+- ESC3: GPIO23
+
+GPS_MAG (JST-GH 6 connector):
+- GPS_TX : GPIO4  (UART1 TX -> /dev/ttyS1)
+- GPS_RX:  GPIO5  (UART1 RX)
+- MAG_SDA: GPIO6  (I2C1 SDA -> Bus 1 External)
+- MAG_SCL: GPIO7  (I2C1 SCL)
+- VCC: 3.3V
+- GND: Ground
+
+GPS Configuration:
+- Serial Port: /dev/ttyS1 (UART1)
+- Default Baud Rate: 38400 (auto-detect supported)
+- Protocol: UBX (u-blox compatible)
+- Startup Command: gps start -d /dev/ttyS1 -p ubx
+
+Magnetometer Configuration:
+- I2C Bus: 1 (Hardware I2C1)
+- Supported Sensors (auto-detect):
+  * QMC5883L (I2C address: 0x0D) - Most common
+  * HMC5883L (I2C address: 0x1E) - Classic
+  * IST8310  (I2C address: 0x0E) - Holybro/DJI modules
+- Test Command: i2cdetect -b 1
+
+TELEMETRY (JST-GH 6 connector):
+- TX : GPIO0
+- RX : GPIO1
+- CTS: GPIO2
+- RTS: GPIO3
+
+POWER (JST-GH 6 connector):
+- GPIO28/ADC2
+- GPIO29/ADC3
+
+FLASH(W25Q128JV):
+- CSB : QSPI_SS_N
+- DO(IO1) : QSPI_SD1
+- WP_bar(IO2) : QSPI_SD2
+- HOLD_bar or RESET-bar (IO3): QSPI_SD3
+- CLK : QSPI_SCLK
+- DI(IO0) : QSPI_SD0
+
+CRYSTAL:
+- XIN:  XIN
+- XOUT: XOUT
+
+
+
+BATTERY:
+- BATT_A: GPIO28
+- BATT_V:  GPIO27
+
+SD CARD:
+- CD/DAT3 : GPIO17
+- CMD : GPIO19
+- CLK : GPIO18
+- DAT0: GPIO16
+
+Other:
+- RC Input: GPIO24
+- Buzzer: GPIO25 (Huaneng QMB-09B-03 Passive Buzzer, 2700±300HZ)
+- ARM Button: GPIO26 (ADC0)
+- USB Detect: GPIO29 (ADC3 - VBUS detection)
+
+BOOT_SEL MODE:
+To put board in mass storage device mode to flash new uf2 firmware:
+1. Short the CSB pin of external flash memory (connected to QSPI_SS_N of RP2040) to ground
+2. Connect MicroUSB cable while holding short
+3. Release short - board appears as USB drive
+4. Copy .uf2 file to the drive
+
+Debug:
+- SWCLK: Debug clock (SWD)
+- SWDIO: Debug data (SWD)
+
+Note: This pinout is for the OpenFC2040 flight controller with RP2040 MCU.

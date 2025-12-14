@@ -1,7 +1,11 @@
 #!/bin/sh
 #
-# board specific sensors init
+# OpenFC2040 board specific sensors init
 #------------------------------------------------------------------------------
+
+# =============================================================================
+# INTERNAL SENSORS (Required - always present on board)
+# =============================================================================
 
 # 1. Start ADC
 # Necessary for Battery Voltage (GPIO27) and Current (GPIO28) monitoring
@@ -15,3 +19,17 @@ lsm6ds3 start -s -R 0
 # 3. Start Barometer: DPS310
 # -s : Internal SPI bus
 dps310 start -s
+
+# =============================================================================
+# EXTERNAL SENSORS (Optional - connected via JST-GH connector)
+# Temporarily DISABLED to restore boot stability.
+# Re-enable later once GPS/Mag bring-up is debugged.
+# =============================================================================
+
+# 4. GPS on UART1 (/dev/ttyS1) - DISABLED
+# gps start -d /dev/ttyS1 -p ubx
+
+# 5. External Magnetometer on I2C Bus 1 (Hardware I2C1: GPIO6/GPIO7) - DISABLED
+ qmc5883l -X -b 1 -R 0 -q start
+ hmc5883  -T -X -b 1 -R 0 -q start
+ ist8310  -X -b 1 -R 0 -q start

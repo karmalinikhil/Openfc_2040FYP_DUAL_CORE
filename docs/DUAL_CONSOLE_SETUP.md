@@ -30,11 +30,10 @@ GND                  →    GND - Pin 1 of JST-GH6
 **⚠️ IMPORTANT**: 
 - TX on adapter connects to RX on board (GPIO1)
 - RX on adapter connects to TX on board (GPIO0)
-- Do NOT connect VCC/3.3V - board is powered separately via USB
 
 ### USB CDC (MAVLink)
 
-Simply connect the board's USB port directly to your computer.
+Simply connect the board's microUSB port directly to your computer using a microUSB cable.
 
 ---
 
@@ -161,7 +160,7 @@ mavlink start -d /dev/ttyACM0 -b 115200 -m normal
 ### NSH Console (via USB-to-TTL)
 
 ```bash
-# Using picocom (recommended)
+# Using picocom 
 picocom -b 57600 /dev/ttyUSB0
 
 # Using screen
@@ -180,7 +179,7 @@ minicom -D /dev/ttyUSB0 -b 57600
 
 1. Connect board USB directly to computer
 2. Open QGroundControl or Mission Planner
-3. It should auto-detect on `/dev/ttyACM0`
+3. It should auto-detect on `/dev/ttyACM0` on Linux or `COM4` on Windows
 
 ---
 
@@ -270,27 +269,4 @@ To enable SPI debug output for troubleshooting, uncomment lines in `boards/raspb
 
 ---
 
-## Final Configuration
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     OpenFC2040 Board                        │
-│                                                             │
-│  UART0 (GPIO0/GPIO1)          USB Port                      │
-│  ┌─────────────────┐          ┌─────────────────┐          │
-│  │  /dev/ttyS0     │          │  /dev/ttyACM0   │          │
-│  │  NSH Console    │          │  MAVLink        │          │
-│  │  57600 baud     │          │  USB Speed      │          │
-│  └────────┬────────┘          └────────┬────────┘          │
-│           │                            │                    │
-└───────────┼────────────────────────────┼────────────────────┘
-            │                            │
-            ▼                            ▼
-    USB-to-TTL Adapter           Direct USB Connection
-    /dev/ttyUSB0                 /dev/ttyACM0
-    picocom -b 57600             QGroundControl
-```
-
----
-
-**Last Updated:** December 3, 2025

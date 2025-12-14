@@ -3,14 +3,13 @@
 **Complete GPIO Mapping and Hardware Connections**
 
 > **Hardware Design by**: [@vxj9800](https://github.com/vxj9800/openFC2040)  
-> **Last Verified**: November 1, 2025
 
 ---
 
 ## Table of Contents
 
 - [Quick Reference](#quick-reference)
-- [Detailed Pin Mapping](#detailed-pin-mapping)
+- [Detailed Pin Mapping and Functionality](#detailed-pin-mapping-and-functionality)
 - [Power Rails](#power-rails)
 - [Component Connections](#component-connections)
 - [Connector Pinouts](#connector-pinouts)
@@ -30,8 +29,8 @@
 | GPIO3 | I2C1_SCL | I2C1 | Telemetry | Bidir | RTS (optional) |
 | GPIO4 | UART1_TX | UART1 | GPS | Output | GPS TX |
 | GPIO5 | UART1_RX | UART1 | GPS | Input | GPS RX |
-| GPIO6 | I2C0_SDA | I2C0 | GPS/Mag | Bidir | Magnetometer SDA |
-| GPIO7 | I2C0_SCL | I2C0 | GPS/Mag | Bidir | Magnetometer SCL |
+| GPIO6 | I2C1_SDA | I2C1 | GPS/Mag | Bidir | Magnetometer SDA |
+| GPIO7 | I2C1_SCL | I2C1 | GPS/Mag | Bidir | Magnetometer SCL |
 | GPIO8 | SPI1_RX | SPI1 | IMU/Baro | Input | MISO (SDO) |
 | GPIO9 | SPI1_CSn | SPI1 | IMU | Output | IMU Chip Select |
 | GPIO10 | SPI1_SCK | SPI1 | IMU/Baro | Output | Shared SPI Clock |
@@ -86,13 +85,13 @@
 
 ---
 
-## Detailed Pin Mapping
+## Detailed Pin Mapping and Functionality
 
 ### Communication Interfaces
 
 #### UART0 - Telemetry/Console
 
-**Purpose**: MAVLink telemetry OR debug console
+**Purpose**: MAVLink telemetry OR NuttX Shell console
 
 | Pin | GPIO | Direction | Signal | Voltage | Notes |
 |-----|------|-----------|--------|---------|-------|
@@ -114,9 +113,9 @@ Adapter RX  →  GPIO0 (TX)
 Adapter GND →  GND
 ```
 
-#### UART1 - GPS
+#### UART1 - GPS_MAG
 
-**Purpose**: GPS module communication
+**Purpose**: External GPS, Magnetometer module communication
 
 | Pin | GPIO | Direction | Signal | Voltage | Notes |
 |-----|------|-----------|--------|---------|-------|
@@ -163,7 +162,7 @@ Adapter GND →  GND
 
 #### DPS310XTSA1 Barometer
 
-**Interface**: SPI1 (shared with IMU)
+**Interface**: SPI1 (BUS shared with IMU)
 
 | Signal | GPIO | RP2040 Pin | Function |
 |--------|------|------------|----------|
@@ -247,7 +246,7 @@ gpio_write(GPIO13, 1);
 
 **Drive**: Active HIGH
 
-**Frequency Range**: 2-4 kHz (optimal ~3 kHz)
+**Frequency Range**: 2700±300 HZ
 
 **Typical tones**:
 - Arming: 1 beep (short)
@@ -294,7 +293,7 @@ gpio_write(GPIO13, 1);
 
 ### Storage
 
-#### MicroSD Card (503398-1892)
+#### MicroSD Card Slot (503398-1892)
 
 **Interface**: SPI0
 
@@ -582,7 +581,6 @@ Files:
 
 ---
 
-**Last Updated**: November 1, 2025  
-**Verified By**: Hardware repository review
+**Verified By**: Schematic analysis (openFC2040.json)
 
 For questions about pin configuration, see `firmware/openfc2040/rsp_2040/board/board_config.h`.

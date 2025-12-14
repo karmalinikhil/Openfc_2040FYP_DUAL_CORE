@@ -31,10 +31,20 @@
  *
  ****************************************************************************/
 
- #include <px4_arch/i2c_hw_description.h>
- 
- constexpr px4_i2c_bus_t px4_i2c_buses[I2C_BUS_MAX_BUS_ITEMS] = {
-     // Bus 2 corresponds to Hardware I2C1 (GPIO 6 & 7)
-     // Used for External GPS Magnetometer
-     initI2CBusExternal(2),
- };
+/**
+ * @file i2c.cpp
+ *
+ * OpenFC2040 I2C bus configuration
+ *
+ * I2C1 Hardware (GPIO 6 SDA, GPIO 7 SCL) is used for the external
+ * GPS magnetometer module. NuttX I2C1 port = 1, so PX4 bus = 1.
+ */
+
+#include <px4_arch/i2c_hw_description.h>
+
+constexpr px4_i2c_bus_t px4_i2c_buses[I2C_BUS_MAX_BUS_ITEMS] = {
+    // Bus 1 corresponds to Hardware I2C1 (GPIO 6 SDA, GPIO 7 SCL)
+    // Used for External GPS Magnetometer
+    // NuttX port 1 = I2C1 hardware controller
+    initI2CBusExternal(2), // making this 1 causes a crash
+};

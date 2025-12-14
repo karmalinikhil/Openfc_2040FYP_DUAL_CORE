@@ -151,8 +151,11 @@ void LSM6DS3::RunImpl()
 		if (Configure()) {
 			// if configure succeeded then start reading
 			_state = STATE::FIFO_READ;
-			// Use 40 Hz polling for RP2040
-			ScheduleOnInterval(25000, 25000);  // 25ms = 40 Hz
+
+			// RP2040 performance constraint:
+			// Keep IMU driver polling <= 50 Hz to avoid starving NSH / system work queues.
+			// 50 Hz => 20ms interval.
+			ScheduleOnInterval(30000, 30000);  // 20ms = 50 Hz
 
 		} else {
 			// CONFIGURE not complete
@@ -244,6 +247,7 @@ void LSM6DS3::RunImpl()
 
 void LSM6DS3::ConfigureSampleRate(int sample_rate)
 {
+
 	// round down to nearest FIFO sample dt
 	const float min_interval = FIFO_SAMPLE_DT;
 	_fifo_empty_interval_us = math::max(roundf((1e6f / (float)sample_rate) / min_interval) * min_interval, min_interval);

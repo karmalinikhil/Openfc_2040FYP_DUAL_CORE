@@ -38,9 +38,9 @@
  * RGB LED on GPIO 13/14/15 (active low)
  * 
  * PX4 LED mapping (from drv_board_led.h):
- * LED_BLUE  = 0 -> GPIO15
- * LED_RED   = 1 -> GPIO14  
- * LED_GREEN = 3 -> GPIO13
+ * LED_BLUE  = 0 -> GPIO15 (physically verified)
+ * LED_RED   = 1 -> GPIO13 (physically verified)
+ * LED_GREEN = 3 -> GPIO14 (physically verified)
  * 
  * Also provides led_pwm_servo functions for rgbled_pwm driver
  */

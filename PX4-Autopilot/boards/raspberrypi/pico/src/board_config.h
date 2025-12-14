@@ -46,11 +46,11 @@
 /* * ---------------------------------------------------------
  * LEDs (RGB)
  * ---------------------------------------------------------
- * Physical wiring determined by testing:
- * GPIO13 = BLUE
- * GPIO14 = RED  
- * GPIO15 = GREEN
- * Mixed active-low/active-high polarity
+ * Physical wiring verified from schematic (openFC2040.json):
+ * GPIO13 = RED (with 162Ω series resistor)
+ * GPIO14 = GREEN (with 60.4Ω series resistor)
+ * GPIO15 = BLUE (with 100Ω series resistor)
+ * Active LOW polarity (0V = LED ON, 3.3V = LED OFF)
  */
 #define GPIO_LED_RED    PX4_MAKE_GPIO_OUTPUT_CLEAR(13)
 #define GPIO_LED_GREEN  PX4_MAKE_GPIO_OUTPUT_CLEAR(14)
@@ -117,9 +117,16 @@
 /* SPI1: Sensors - CLK:10, MOSI:11, MISO:8, IMU_CS:9, BARO_CS:12 */
 
 /* * ---------------------------------------------------------
- * I2C EXTENSION (GPS Mag)
+ * I2C EXTENSION (GPS Magnetometer)
  * ---------------------------------------------------------
- * Mag SDA: GPIO6, Mag SCL: GPIO7 -> I2C1 on RP2040
+ * External GPS/Magnetometer module connected via JST-GH connector
+ * Mag SDA: GPIO6, Mag SCL: GPIO7 -> Hardware I2C1 on RP2040
+ * PX4 Bus 1 = NuttX I2C1 port = Hardware I2C1 controller
+ * 
+ * Supported magnetometers (auto-detect in rc.board_sensors):
+ *   - QMC5883L (I2C address 0x0D)
+ *   - HMC5883L (I2C address 0x1E)
+ *   - IST8310  (I2C address 0x0E)
  */
 #define PX4_I2C_BUS_EXPANSION 1
 #define GPIO_I2C1_SDA    6
