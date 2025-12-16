@@ -21,7 +21,7 @@ CONFIG_DRIVERS_GPS=y
 CONFIG_DRIVERS_LIGHTS_RGBLED_GPIO=y
 CONFIG_DRIVERS_PWM_OUT=y
 CONFIG_DRIVERS_RC_INPUT=y
-#CONFIG_DRIVERS_TONE_ALARM=y 
+CONFIG_DRIVERS_TONE_ALARM=y 
 
 # ---------------------------------------------------------
 # Sensors (OpenFC2040 Specific)

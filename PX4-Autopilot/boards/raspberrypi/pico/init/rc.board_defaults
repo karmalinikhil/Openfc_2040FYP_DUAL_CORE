@@ -19,3 +19,5 @@ sleep 2
 # Start NSH terminal on UART0 (Telemetry Port: GPIO0/GPIO1)
 # Connect via USB-to-TTL adapter at 57600 baud
 nshterm /dev/ttyS0 &
+
+tone_alarm start

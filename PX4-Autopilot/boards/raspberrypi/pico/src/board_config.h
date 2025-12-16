@@ -78,7 +78,7 @@
  * ---------------------------------------------------------
  * Huaneng QMB-09B-03 on GPIO 25
  */
-#define GPIO_TONE_ALARM_0    PX4_MAKE_GPIO_OUTPUT_CLEAR(25)
+#define GPIO_TONE_ALARM_1    PX4_MAKE_GPIO_OUTPUT_CLEAR(25)
 
 /* * ---------------------------------------------------------
  * RC INPUT
