@@ -29,7 +29,7 @@ A step-by-step checklist for bringing up all hardware and features on the OpenFC
 ### RGB LED & Buzzer
 - [x] Connect RGB LED and buzzer to assigned pins
 - [x] Configure PX4 for status LED and buzzer
-- [ ] Test LED color/status and buzzer alerts
+- [x] Test LED color/status and buzzer alerts (needs refining still, 16 Dec)
 
 ### Battery Monitoring
 - [ ] Connect battery voltage/current sense to ADC pins
@@ -118,6 +118,7 @@ This section details the files to create or modify and the steps to implement ea
 	- `led_control on -c green`
 	- `led_control on -c blue`
 	- `led_control on -c white`
+	- `tune_control play -f 2700 -d 1000`
 
 ### 5. Battery Monitoring
 - **Files:**
