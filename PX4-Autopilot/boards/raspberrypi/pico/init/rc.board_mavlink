@@ -6,4 +6,7 @@
 # Start MAVLink on the USB CDC ACM port
 # Note: Baud rate is ignored for USB CDC (runs at USB speed)
 # Using 115200 for consistency with standard PX4 configs
-mavlink start -d /dev/ttyACM0 -b 115200 -m normal
+if [ -c /dev/ttyACM0 ]
+then
+	mavlink start -d /dev/ttyACM0 -b 115200 -m normal
+fi

@@ -5,21 +5,25 @@ A step-by-step checklist for bringing up all hardware and features on the OpenFC
 ## Core fixes and updates
 - [x] Barometer (DPS310) driver working
 - [x] IMU (LSM6DS3TR-C) driver working
-- [x] NSH shell stable and responsive (on telemetry port-UART0)
-- [x] Sensor data visible in Mission Planner
+- [x] NSH shell available on UART0 (/dev/ttyS0)
+- [x] MAVLink over USB CDC (/dev/ttyACM0) working
+- [x] Attitude (roll/pitch/yaw) visible in Mission Planner (MAVLink mode: Normal)
+- [x] IMU publication rate increased (vehicle_imu interval ~20000 us)
 
 ## Next steps
 
 ### Motor Outputs
-- [ ] Connect PWM ESC outputs to RP2040 pins (see `docs/rp2040-pinout.txt`)
-- [ ] Configure PX4 mixer for motor outputs
-- [ ] Test motor outputs with PX4 actuator test
+- [x] PWM output pin mapping defined (GPIO20-23)
+- [x] pwm_out driver running (Param prefix: PWM_MAIN)
+- [ ] Assign actuator functions (PWM_MAIN_FUNC1..4 -> Motor 1..4) via airframe/actuator setup
+- [ ] Test motor outputs with PX4 actuator test (props off)
 - [ ] Confirm correct motor mapping and direction
 
 ### GPS & Magnetometer
-- [x] Connect GPS and magnetometer to correct pins
-- [x] Configure PX4 for GPS/mag (set serial port, baud rate)
-- [ ] Verify GPS lock and heading in ground station (requires external GPS module)
+- [x] GPS UART1 mapping available (GPIO4/5 -> /dev/ttyS1)
+- [x] External I2C1 mapping available for magnetometer (GPIO6/7)
+- [ ] Verify GPS wiring + baud (gps status currently shows NOT OK / 0 B/s)
+- [ ] Verify magnetometer presence and calibration (currently operating without mag)
 
 ### SD Card Logging
 - [ ] Connect SD card to RP2040 SPI pins
@@ -32,25 +36,29 @@ A step-by-step checklist for bringing up all hardware and features on the OpenFC
 - [x] Test LED color/status and buzzer alerts (needs refining still, 16 Dec)
 
 ### Battery Monitoring
-- [ ] Connect battery voltage/current sense to ADC pins
-- [ ] Configure PX4 battery parameters
+- [x] ADC channels defined (GPIO27 voltage, GPIO28 current)
+- [x] Board defaults set for voltage divider/current scaling
 - [ ] Verify battery status in ground station
 
 ### RC Input
 - [ ] Connect RC receiver to input pins
-- [ ] Configure PX4 for RC input type (PWM/SBUS/CRSF)
+- [ ] Configure PX4 for RC input type (PPM on GPIO24 expected by board)
 - [ ] Test RC channel mapping and failsafe
 
 ### Telemetry
-- [x] Connect telemetry radio to UART pins
-- [x] Configure PX4 telemetry port
-- [ ] Verify telemetry link to ground station
+- [x] MAVLink telemetry via USB CDC
+- [ ] Optional: configure external telemetry radio on UART (if required)
 
 ## Final Validation
 - [ ] Calibrate all sensors (IMU, mag, baro, RC)
 - [ ] Test arming/disarming and flight modes
 - [ ] Perform bench test of all features
 - [ ] Document pin mappings and configuration in `docs/rp2040-pinout.txt`
+
+## Current Blockers / Notes
+- EKF2 is not enabled by default (EKF2_EN=0, ATT_EN=1) and EKF2 bring-up is still pending due to CPU/load constraints on RP2040.
+- PWM outputs are present, but motor functions are not assigned yet (pwm_out shows func 0 on channels).
+- GPS currently shows NOT OK (0 B/s) and needs wiring/serial parameter verification.
 
 ---
 
