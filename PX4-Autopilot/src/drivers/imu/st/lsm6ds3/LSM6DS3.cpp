@@ -155,7 +155,7 @@ void LSM6DS3::RunImpl()
 			// RP2040 performance constraint:
 			// Keep IMU driver polling <= 50 Hz to avoid starving NSH / system work queues.
 			// 50 Hz => 20ms interval.
-			ScheduleOnInterval(20000, 20000);  // 20ms = 50 Hz
+			ScheduleOnInterval(22000, 22000);  // 22ms = ~45.45 Hz (slightly below 50 Hz)
 
 		} else {
 			// CONFIGURE not complete
