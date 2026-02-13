@@ -150,21 +150,27 @@ __EXPORT void led_toggle(int led)
 }
 
 /**
- * NuttX auto LED functions for boot indication
+ * NuttX auto LED functions - DISABLED to prevent OS-level LED control
+ * RGB LEDs are now exclusively controlled by PX4 rgbled_gpio driver
+ * These functions are stubbed to satisfy NuttX linkage requirements
  */
 void board_autoled_initialize_impl(void)
 {
-    led_init();
+    //led_init(); //Full control to PX4 driver
 }
 
 void board_autoled_on_impl(int led)
 {
-    led_on(led);
+   // led_on(led);
+    /* Stubbed - LED control now handled by PX4 rgbled_gpio driver */
+    (void)led;
 }
 
 void board_autoled_off_impl(int led)
 {
-    led_off(led);
+    //led_off(led);
+    /* Stubbed - LED control now handled by PX4 rgbled_gpio driver */
+    (void)led;
 }
 
 /**

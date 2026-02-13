@@ -1,38 +1,23 @@
-
-# DPS310 Barometer SPI Fix Report
-
-  
-
 ## Overview
-
-  
 
 This document details the issues encountered when integrating the DPS310 barometer sensor with the RP2040-based OpenFC2040 flight controller running PX4/NuttX, and the changes required to make it work.
 
-  
+---
 
 ## Problem Description
-
-  
 
 The DPS310 barometer was not being detected on the SPI bus despite correct wiring and pin configuration. The sensor probe would fail silently with no data being published to the `sensor_baro` uORB topic in the NuttX shell(nsh).
 
   
-
 ### Symptoms
-
-  
 
 - `dps310 -s start` command in NuttX shell would give the output message "no instance started (no device on bus?)"
 
 - `listener sensor_baro` showed no data
 
-
-  
+---
 
 ## Root Cause Analysis
-
-  
 
 The issue was in the **chip select (CS) logic** within the RP2040 SPI driver implementation for NuttX. The problem manifested in how the SPI chip select was being managed based on device type identification.
 
@@ -40,15 +25,11 @@ The issue was in the **chip select (CS) logic** within the RP2040 SPI driver imp
 
 ### The Chip Select Problem
 
-  
-
 In the PX4/NuttX SPI architecture for RP2040, the chip select logic uses a `devtype` field to identify which device is being addressed. The original implementation had incorrect logic for selecting the barometer's chip select line.
 
   
 
 #### Original Faulty Code
-
-  
 
 The chip select control was looking for specific device type values but the comparison logic was incorrect:
 
@@ -59,8 +40,6 @@ In `rp2040_spi.c` - the chipselect handling, the original source code was checki
 
 ### Key Discovery
 
-  
-
 The device types used in PX4 for SPI device identification:
 
 - **DPS310 Barometer**: Device type `0x44` (68 decimal) or similar baro identifier
@@ -68,7 +47,7 @@ The device types used in PX4 for SPI device identification:
 
 The chip select logic needed to properly distinguish between these devices and assert the correct CS line for each.
 
-  
+---  
 
 ## Solution
 
@@ -82,13 +61,10 @@ The chip select logic needed to properly distinguish between these devices and a
 
   
 
-**File**: `boards/raspberrypi/pico/src/rp2040_spi.c` (or equivalent board SPI file)
-
-  
+**File**: `boards/raspberrypi/pico/src/init.c` 
 
 The chip select function was modified to correctly identify the barometer device and assert the appropriate GPIO according to the chip ID:
 
-  
 
 ```c
 
@@ -113,15 +89,10 @@ px4_arch_gpiowrite(GPIO_SPI_CS_BARO, !selected);
 
 ```
 
-  
 
 #### 2. GPIO Pin Configuration
 
-  
-
 **File**: `boards/raspberrypi/pico/src/board_config.h`
-
-  
 
 Ensure the barometer chip select GPIO is properly defined:
 
@@ -191,82 +162,31 @@ lsm9ds1 start -s -R 0 # Was -S, which made it search for external SPI buses
 dps310 start -s # Was -S, which made it search for external SPI buses
 ```
 
-
-## Hardware Connection:
-
-For reference, the DPS310 on OpenFC2040 uses:
-
-| Signal | RP2040 GPIO | Function     |
-|--------|-------------|--------------|
-| MOSI   | GPIO11      | SPI1 TX (SDA)|
-| MISO   | GPIO8       | SPI1 RX (SDO)|
-| SCK    | GPIO10      | SPI1 Clock   |
-| CS     | GPIO12      | Chip Select (active low) |
-
-**Note:** DPS310 shares SPI1 bus with IMU (LSM6DS3TR-C). Only CS pins differ.
-
-  
+---
 
 ## Verification
 
-  
-
 After applying the fix, verification was done using:
 
-  
 
 ```bash
 
 # Start the DPS310 driver
-
-nsh> dps310 -s start # Might give "device not found on bus" or similar type of error on doing because the device(dps310) already starts when the board is powered on but dps310 -s status properly gives SPI details
+nsh> dps310 -s start # Might give "device not found on bus" or similar type of error because the device(dps310) automatically starts when the board is powered ON 
 
 
 nsh> dps310 status # Outputs given shows that it can detect baro on SPI bus 
 
-# Check if data is being published
 
+# Check if data is being published
 nsh> listener sensor_baro
 
 ```
 
-  
-
-### Expected Output
-
-  
-
-```
-
-TOPIC: sensor_baro
-
-timestamp: 123456789
-
-device_id: 1234567
-
-pressure: 101325.0 # ~1 atm in Pascals
-
-temperature: 32.69772 # Celsius
-
-```
-
-  
-
-### Confirmed Working
-
-  
-
-- **Update Rate**: 19 Hz
-
-- **Pressure Reading**: ~100621 Pa (reasonable for altitude)
-
-- **Temperature Reading**: ~33.48°C (reasonable ambient)
-
-  
+---
 
 ## Key Takeaways
 
-  
 
 1. **Device Type Matters**: PX4's SPI subsystem relies on device type identifiers (devtype) to route chip select signals. These must match between the driver and board configuration.
 
@@ -296,7 +216,7 @@ temperature: 32.69772 # Celsius
 
 - Check for pull-up/pull-down resistor requirements
 
-  
+---
 
 ## Related Files
 

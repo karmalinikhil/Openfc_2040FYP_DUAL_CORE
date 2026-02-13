@@ -3,17 +3,19 @@ CONFIG_BOARD_ARCHITECTURE="cortex-m0plus"
 CONFIG_BOARD_CONSTRAINED_FLASH=y
 CONFIG_BOARD_CONSTRAINED_MEMORY=y
 
+# Dataman mission storage (typo in PX4 source: ITMES not ITEMS)
+CONFIG_NUM_MISSION_ITMES_SUPPORTED=10
+
 # ---------------------------------------------------------
 # Serial Port Mappings (RP2040 has 2 UARTs)
 # ---------------------------------------------------------
-# UART0 (GPIO 0/1): /dev/ttyS0 - Used for NSH console (not telemetry)
+# UART0 (GPIO 0/1): /dev/ttyS0 - NSH console
 # UART1 (GPS on GPIO 4/5): /dev/ttyS1
-# Telemetry runs on USB CDC (/dev/ttyACM0) via MAVLink
-# CONFIG_BOARD_SERIAL_TEL1 is not set - UART0 reserved for NSH
+# Telemetry on USB CDC (/dev/ttyACM0)
 CONFIG_BOARD_SERIAL_GPS1="/dev/ttyS1"
 
 # ---------------------------------------------------------
-# Drivers
+# Drivers (Minimal set for motor testing)
 # ---------------------------------------------------------
 CONFIG_DRIVERS_ADC_BOARD_ADC=y
 CONFIG_DRIVERS_CDCACM_AUTOSTART=y
@@ -21,26 +23,21 @@ CONFIG_DRIVERS_GPS=y
 CONFIG_DRIVERS_LIGHTS_RGBLED_GPIO=y
 CONFIG_DRIVERS_PWM_OUT=y
 CONFIG_DRIVERS_RC_INPUT=y
-CONFIG_DRIVERS_TONE_ALARM=y 
+CONFIG_DRIVERS_TONE_ALARM=y
 
 # ---------------------------------------------------------
-# Sensors (OpenFC2040 Specific)
+# Sensors (OpenFC2040)
 # ---------------------------------------------------------
-# Internal IMU: LSM6DS3TR-C
-# Native driver support for LSM6DS3TR-C IMU
 CONFIG_DRIVERS_IMU_ST_LSM6DS3=y
-
-# Internal Barometer: DPS310
 CONFIG_DRIVERS_BAROMETER_DPS310=y
-
-# External Magnetometers (I2C)
-# We enable multiple drivers because external GPS units vary
-CONFIG_DRIVERS_MAGNETOMETER_HMC5883=y
+# All common GPS module magnetometers (auto-detect at boot)
 CONFIG_DRIVERS_MAGNETOMETER_QMC5883L=y
-CONFIG_DRIVERS_MAGNETOMETER_IST8310=y
+CONFIG_DRIVERS_MAGNETOMETER_HMC5883=y
+CONFIG_DRIVERS_MAGNETOMETER_ISENTEK_IST8310=y
 
 # ---------------------------------------------------------
-# Modules
+# Modules (MINIMAL - optimized for RP2040 resource constraints)
+# EKF2 disabled, using Q attitude estimator for lightweight fusion
 # ---------------------------------------------------------
 CONFIG_MODULES_ATTITUDE_ESTIMATOR_Q=y
 CONFIG_MODULES_BATTERY_STATUS=y
@@ -50,34 +47,32 @@ CONFIG_MODULES_DATAMAN=y
 CONFIG_MODULES_EKF2=y
 CONFIG_MODULES_EVENTS=y
 CONFIG_MODULES_FLIGHT_MODE_MANAGER=y
-CONFIG_MODULES_GYRO_CALIBRATION=y
-CONFIG_MODULES_LAND_DETECTOR=y
+# CONFIG_MODULES_GYRO_CALIBRATION is not set
+# CONFIG_MODULES_LAND_DETECTOR is not set
 CONFIG_MODULES_LOAD_MON=y
 CONFIG_MODULES_LOGGER=y
-CONFIG_MODULES_MAG_BIAS_ESTIMATOR=y
+# CONFIG_MODULES_MAG_BIAS_ESTIMATOR is not set
 CONFIG_MODULES_MANUAL_CONTROL=y
 CONFIG_MODULES_MAVLINK=y
 CONFIG_MODULES_MC_ATT_CONTROL=y
-CONFIG_MODULES_MC_HOVER_THRUST_ESTIMATOR=y
+# CONFIG_MODULES_MC_HOVER_THRUST_ESTIMATOR is not set
 CONFIG_MODULES_MC_POS_CONTROL=y
 CONFIG_MODULES_MC_RATE_CONTROL=y
 CONFIG_MODULES_NAVIGATOR=y
-# CONFIG_NAVIGATOR_ADSB is not set
 CONFIG_MODULES_RC_UPDATE=y
 CONFIG_MODULES_SENSORS=y
+
+# ---------------------------------------------------------
+# System Commands (stripped to essentials + actuator_test)
+# ---------------------------------------------------------
+CONFIG_SYSTEMCMDS_ACTUATOR_TEST=y
 CONFIG_SYSTEMCMDS_DMESG=y
-CONFIG_SYSTEMCMDS_DUMPFILE=y
-CONFIG_SYSTEMCMDS_I2CDETECT=y
 CONFIG_SYSTEMCMDS_LED_CONTROL=y
 CONFIG_SYSTEMCMDS_NSHTERM=y
 CONFIG_SYSTEMCMDS_PARAM=y
-CONFIG_SYSTEMCMDS_PERF=y
 CONFIG_SYSTEMCMDS_REBOOT=y
-CONFIG_SYSTEMCMDS_REFLECT=y
 CONFIG_SYSTEMCMDS_TOP=y
 CONFIG_SYSTEMCMDS_TOPIC_LISTENER=y
 CONFIG_SYSTEMCMDS_TUNE_CONTROL=y
 CONFIG_SYSTEMCMDS_UORB=y
-CONFIG_SYSTEMCMDS_USB_CONNECTED=y
 CONFIG_SYSTEMCMDS_VER=y
-CONFIG_SYSTEMCMDS_WORK_QUEUE=y

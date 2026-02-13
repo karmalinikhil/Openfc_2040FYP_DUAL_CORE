@@ -1,29 +1,4 @@
-# LSM6DS3TR-C IMU Driver Implementation Report
-
-## OpenFC2040 Flight Controller - PX4 Firmware
-
-**Date:** December 9, 2025  
-**Author:** OpenFC2040 Development Team  
-**Version:** 1.0 (Firmware v13)
-
----
-
-## Table of Contents
-
-1. [Executive Summary](#executive-summary)
-2. [Problem Statement](#problem-statement)
-3. [Root Cause Analysis](#root-cause-analysis)
-4. [Solution Implementation](#solution-implementation)
-5. [Modified Files](#modified-files)
-6. [Technical Details](#technical-details)
-7. [Testing Results](#testing-results)
-8. [Known Limitations](#known-limitations)
-9. [Future Improvements](#future-improvements)
-10. [Appendix: Register Configuration](#appendix-register-configuration)
-
----
-
-## Executive Summary
+## Overview
 
 This report documents the implementation and debugging of the LSM6DS3TR-C IMU driver for the OpenFC2040 flight controller, which is based on the Raspberry Pi RP2040 microcontroller running PX4 Autopilot on NuttX RTOS.
 
@@ -33,11 +8,10 @@ This report documents the implementation and debugging of the LSM6DS3TR-C IMU dr
 - **Polling Rate:** 40 Hz (25ms interval)
 - **Internal ODR:** 833 Hz
 - **Mode:** Direct Register Polling (FIFO Bypass)
-- **Firmware:** `imu_40hz_robust_v13.uf2`
 
 ---
 
-## Problem Statement
+## Problem Analysis
 
 ### Symptoms
 When the LSM6DS3 IMU driver was started on the RP2040-based OpenFC2040 board, the NuttX Shell (NSH) would freeze completely:
@@ -64,22 +38,21 @@ When the LSM6DS3 IMU driver was started on the RP2040-based OpenFC2040 board, th
 
 ### Investigation Process
 
-1. **Initial Hypothesis:** FIFO overflow causing infinite loop
-   - The original driver was configured for FIFO mode but was reading from wrong registers
-   - Reading from `OUTX_L_G` (0x22) instead of `FIFO_DATA_OUT_L` (0x3E)
-   - FIFO never drained, causing repeated full reads
-
-2. **Second Hypothesis:** ODR mismatch
-   - Tried reducing ODR from 833 Hz to 104 Hz, then 52 Hz
-   - Lower ODR still caused freezes
-   - Higher ODR (833 Hz) was actually more stable when combined with other fixes
-
-3. **Third Hypothesis:** SPI bus contention
+1. **Initial Hypothesis:** SPI bus contention
+   - Thought sharing same SPI bus with the baro and imu caused the CPU to starve
    - Reduced SPI frequency from 10 MHz to 2 MHz
    - No improvement observed
    - Reverted to 10 MHz (confirmed working with DPS310)
+   
+2. **Second Hypothesis:** FIFO overflow causing infinite loop & ODR mismatch
+   - The original driver was configured for FIFO mode but was reading from wrong registers
+   - Reading from `OUTX_L_G` (0x22) instead of `FIFO_DATA_OUT_L` (0x3E)
+   - FIFO never drained, causing repeated full reads
+   -    - Tried reducing ODR from 833 Hz to 104 Hz, then 52 Hz
+   - Lower ODR still caused freezes
+   - Higher ODR (833 Hz) was actually more stable when combined with other fixes
 
-4. **Root Cause Identified:** CPU Starvation
+3. **Root Cause Identified:** CPU Starvation
    - The driver's `RunImpl()` function was consuming too much CPU time
    - High-priority work queue (HPWORK) was monopolized by the IMU driver
    - NSH (running on lower priority) was starved of CPU cycles
@@ -92,7 +65,7 @@ Through binary search of polling frequencies:
 - **40 Hz (25ms):** Works ✓
 - **50 Hz (20ms):** Freezes ✗
 
-The threshold between stability and freeze was between 40-50 Hz.
+The threshold between stability and freeze was somewhere between 40-50 Hz.
 
 ---
 
@@ -241,97 +214,6 @@ dps310 start -s
 
 ---
 
-## Technical Details
-
-### Hardware Configuration
-
-| Parameter | Value |
-|-----------|-------|
-| MCU | RP2040 (Dual-core Cortex-M0+ @ 133 MHz) |
-| IMU | LSM6DS3TR-C (6-axis) |
-| Interface | SPI1 @ 10 MHz |
-| IMU CS Pin | GPIO9 |
-| SPI Mode | Mode 3 (CPOL=1, CPHA=1) |
-
-### Driver Configuration
-
-| Parameter | Value | Notes |
-|-----------|-------|-------|
-| Polling Rate | 40 Hz | Maximum stable rate on RP2040 |
-| Internal ODR | 833 Hz | High-speed sampling for low latency |
-| FIFO Mode | Bypass (Disabled) | Direct register reading |
-| Accelerometer Range | ±16g | Full scale for high-G maneuvers |
-| Gyroscope Range | ±2000 dps | Full scale for aggressive flight |
-| Accel Sensitivity | 0.488 mg/LSB | Per datasheet |
-| Gyro Sensitivity | 70 mdps/LSB | Per datasheet |
-
-### Timing Analysis
-
-| Operation | Estimated Time |
-|-----------|---------------|
-| SPI Transfer (13 bytes @ 10 MHz) | ~15 µs |
-| Data Processing | ~5 µs |
-| uORB Publish (2 topics) | ~50 µs |
-| Scheduling Overhead | ~30 µs |
-| **Total per cycle** | **~100 µs** |
-| **Available time at 40 Hz** | **25,000 µs** |
-| **CPU Utilization** | **~0.4%** |
-
-### Why 50 Hz Freezes
-
-At 50 Hz (20 ms interval), the system becomes unstable due to:
-1. **Work Queue Contention:** Other HPWORK tasks compete for execution
-2. **Context Switch Overhead:** More frequent switches increase overhead
-3. **Interrupt Latency:** Higher frequency increases interrupt load
-4. **Scheduler Timing:** 20 ms may conflict with other periodic tasks
-
----
-
-## Testing Results
-
-### Verified Functionality
-
-| Test | Result |
-|------|--------|
-| NSH Responsiveness | ✅ Pass |
-| `lsm6ds3 status` | ✅ Pass |
-| `listener sensor_accel` | ✅ Pass |
-| `listener sensor_gyro` | ✅ Pass |
-| Temperature Reading | ✅ Pass (29.7°C) |
-| Accelerometer Values | ✅ Pass (Z ≈ -9.9 m/s²) |
-| Gyroscope Values | ✅ Pass (~0 rad/s at rest) |
-| Mission Planner Connection | ✅ Pass |
-| Real-time Data Updates | ✅ Pass |
-
-### Sample Output
-
-**Accelerometer:**
-```
-TOPIC: sensor_accel
-    timestamp: 157468091
-    device_id: 15269906 (Type: 0xE9, SPI:2)
-    x: 0.06221 m/s²
-    y: -0.28235 m/s²
-    z: -9.93979 m/s²
-    temperature: 29.71875°C
-    error_count: 0
-    samples: 1
-```
-
-**Gyroscope:**
-```
-TOPIC: sensor_gyro
-    timestamp: 52243576
-    device_id: 15269906 (Type: 0xE9, SPI:2)
-    x: 0.00244 rad/s
-    y: -0.04886 rad/s
-    z: 0.00366 rad/s
-    temperature: nan
-    error_count: 0
-    samples: 1
-```
-
----
 
 ## Known Limitations
 
@@ -375,44 +257,9 @@ TOPIC: sensor_gyro
 
 ---
 
-## Appendix: Register Configuration
-
-### LSM6DS3TR-C Register Map (Key Registers)
-
-| Register | Address | Value | Description |
-|----------|---------|-------|-------------|
-| WHO_AM_I | 0x0F | 0x6A | Device ID (read-only) |
-| CTRL1_XL | 0x10 | 0x74 | Accel: 833 Hz, ±16g |
-| CTRL2_G | 0x11 | 0x7C | Gyro: 833 Hz, ±2000 dps |
-| CTRL3_C | 0x12 | 0x44 | BDU=1, IF_INC=1 |
-| CTRL4_C | 0x13 | 0x04 | I2C disabled |
-| FIFO_CTRL3 | 0x08 | 0x00 | FIFO decimation disabled |
-| FIFO_CTRL5 | 0x0A | 0x00 | FIFO bypass mode |
-| OUTX_L_G | 0x22 | - | Gyro X Low byte |
-| OUTX_L_XL | 0x28 | - | Accel X Low byte |
-
-### ODR Configuration (CTRL1_XL, CTRL2_G bits [7:4])
-
-| Binary | Hex | Frequency |
-|--------|-----|-----------|
-| 0000 | 0x00 | Power-down |
-| 0001 | 0x10 | 12.5 Hz |
-| 0010 | 0x20 | 26 Hz |
-| 0011 | 0x30 | 52 Hz |
-| 0100 | 0x40 | 104 Hz |
-| 0101 | 0x50 | 208 Hz |
-| 0110 | 0x60 | 416 Hz |
-| 0111 | 0x70 | 833 Hz |
-| 1000 | 0x80 | 1.66 kHz |
-
----
-
 ## Conclusion
 
 The LSM6DS3TR-C IMU driver has been successfully implemented for the OpenFC2040 flight controller. The key insight was that the RP2040's limited CPU resources (no FPU, constrained work queue scheduling) require a carefully tuned polling rate. By using direct register reading at 40 Hz with 833 Hz internal sampling, the system achieves stable operation while maintaining data quality suitable for flight control applications.
 
-**Final Deliverable:** `imu_40hz_robust_v13.uf2`
 
 ---
-
-*End of Report*

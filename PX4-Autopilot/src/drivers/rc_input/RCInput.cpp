@@ -35,6 +35,7 @@
 
 #include "crsf_telemetry.h"
 #include <uORB/topics/vehicle_command_ack.h>
+#include <lib/parameters/param.h>
 
 #include <termios.h>
 
@@ -85,6 +86,10 @@ RCInput::init()
 	// power radio on
 	RF_RADIO_POWER_CONTROL(true);
 #endif // RF_RADIO_POWER_CONTROL
+
+	if (_device[0] == '\0') {
+		return 0;
+	}
 
 	// dsm_init sets some file static variables and returns a file descriptor
 	// it also powers on the radio if needed
@@ -187,6 +192,26 @@ RCInput::task_spawn(int argc, char *argv[])
 		instance->ScheduleOnInterval(_current_update_interval);
 
 		return PX4_OK;
+
+	} else if (!device_name) {
+#ifdef HRT_PPM_CHANNEL
+		param_t p = param_find("RC_INPUT_PROTO");
+		int32_t proto = -2;
+
+		if (p != PARAM_INVALID && param_get(p, &proto) == 0 && proto == RC_SCAN::RC_SCAN_PPM) {
+			RCInput *instance = new RCInput(nullptr);
+
+			if (instance == nullptr) {
+				PX4_ERR("alloc failed");
+				return PX4_ERROR;
+			}
+
+			_object.store(instance);
+			_task_id = task_id_is_work_queue;
+			instance->ScheduleOnInterval(_current_update_interval);
+			return PX4_OK;
+		}
+#endif // HRT_PPM_CHANNEL
 
 	} else if (silent) {
 		return PX4_OK;
@@ -470,7 +495,7 @@ void RCInput::Run()
 		// read all available data from the serial RC input UART
 
 		// read all available data from the serial RC input UART
-		int newBytes = ::read(_rcs_fd, &_rcs_buf[0], RC_MAX_BUFFER_SIZE);
+		int newBytes = (_rcs_fd >= 0) ? ::read(_rcs_fd, &_rcs_buf[0], RC_MAX_BUFFER_SIZE) : 0;
 
 		if (newBytes > 0) {
 			_bytes_rx += newBytes;

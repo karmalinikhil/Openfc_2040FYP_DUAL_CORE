@@ -13,6 +13,7 @@
 #include <drivers/drv_tone_alarm.h>
 #include <px4_platform_common/px4_config.h>
 #include <board_config.h>
+#include <arch/board/board.h>  // For BOARD_SYS_FREQ
 #include <nuttx/arch.h>
 #include <stdint.h>
 
@@ -102,17 +103,23 @@ hrt_abstime start_note(unsigned frequency)
     if (frequency < 20) frequency = 20;
     if (frequency > 20000) frequency = 20000;
 
-    // Clock Setup
-    uint32_t sys_clk = 125000000; 
-    uint32_t div_int = 100;       
-    uint32_t pwm_clk = sys_clk / div_int; 
+    // RP2040 PWM is clocked from CLK_SYS, NOT CLK_PERI!
+    // CLK_PERI (48MHz) drives UART/SPI/I2C only.
+    // CLK_SYS (200MHz overclocked) drives PWM, timers, and CPU.
+    // See RP2040 datasheet Section 4.5 and NuttX rp2040_pwm.c.
+    uint32_t pwm_source_clk = BOARD_SYS_FREQ;          // 200 MHz (from board.h)
+    uint32_t target_pwm_clk = 1000000;                  // Target: 1 MHz effective PWM clock
+    uint32_t div_int = pwm_source_clk / target_pwm_clk; // 200MHz / 1MHz = 200 (fits in 8-bit, max 255)
+    uint32_t pwm_clk = pwm_source_clk / div_int;        // Actual: 1 MHz
 
-    // Calculate Period
+    // Calculate Period (TOP value)
+    // For 2700Hz: TOP = 1,000,000 / 2,700 = 370 → output = 200MHz / 200 / 370 = 2,703 Hz ✓
     uint32_t top_val = pwm_clk / frequency;
-    if (top_val > 65535) top_val = 65535; 
+    if (top_val > 65535) top_val = 65535;
 
-    // Duty Cycle 50%
-    uint32_t cc_val = (top_val / 2) << 16; 
+    // Duty Cycle 50% on Channel B (GPIO25 = Slice 4, Channel B)
+    // CC register: bits [31:16] = Channel B compare value
+    uint32_t cc_val = (top_val / 2) << 16;
 
     // Write Registers
     uint32_t slice_base = RP2040_PWM_BASE + PWM_SLICE4_OFFSET;

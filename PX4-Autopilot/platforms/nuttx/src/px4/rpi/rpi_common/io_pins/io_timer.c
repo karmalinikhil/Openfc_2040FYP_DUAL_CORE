@@ -73,7 +73,9 @@
 #define BOARD_ONESHOT_FREQ 8000000
 #endif
 
-#define TIM_SRC_CLOCK_FREQ 125000000
+#include <arch/board/board.h>
+
+#define TIM_SRC_CLOCK_FREQ BOARD_SYS_FREQ
 
 #define MAX_CHANNELS_PER_TIMER 2
 

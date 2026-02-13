@@ -15,25 +15,25 @@ A step-by-step checklist for bringing up all hardware and features on the OpenFC
 ### Motor Outputs
 - [x] PWM output pin mapping defined (GPIO20-23)
 - [x] pwm_out driver running (Param prefix: PWM_MAIN)
-- [ ] Assign actuator functions (PWM_MAIN_FUNC1..4 -> Motor 1..4) via airframe/actuator setup
-- [ ] Test motor outputs with PX4 actuator test (props off)
-- [ ] Confirm correct motor mapping and direction
+- [x] Assign actuator functions (PWM_MAIN_FUNC1..4 -> Motor 1..4) via airframe/actuator setup
+- [x] Test motor outputs with PX4 actuator test (props off)
+- [x] Confirm correct motor mapping and direction
 
 ### GPS & Magnetometer
 - [x] GPS UART1 mapping available (GPIO4/5 -> /dev/ttyS1)
 - [x] External I2C1 mapping available for magnetometer (GPIO6/7)
-- [ ] Verify GPS wiring + baud (gps status currently shows NOT OK / 0 B/s)
-- [ ] Verify magnetometer presence and calibration (currently operating without mag)
+- [x] Verify GPS wiring + baud (gps status currently shows NOT OK / 0 B/s)
+- [x] Verify magnetometer presence and calibration (currently operating without mag)
 
 ### SD Card Logging
-- [ ] Connect SD card to RP2040 SPI pins
-- [ ] Enable SD card logging in PX4
-- [ ] Confirm log file creation and data integrity
+- [x] Connect SD card to RP2040 SPI pins
+- [x] Enable SD card logging in PX4
+- [x] Confirm log file creation and data integrity
 
 ### RGB LED & Buzzer
 - [x] Connect RGB LED and buzzer to assigned pins
 - [x] Configure PX4 for status LED and buzzer
-- [x] Test LED color/status and buzzer alerts (needs refining still, 16 Dec)
+- [x] Test LED color/status and buzzer alerts 
 
 ### Battery Monitoring
 - [x] ADC channels defined (GPIO27 voltage, GPIO28 current)
@@ -41,24 +41,21 @@ A step-by-step checklist for bringing up all hardware and features on the OpenFC
 - [ ] Verify battery status in ground station
 
 ### RC Input
-- [ ] Connect RC receiver to input pins
-- [ ] Configure PX4 for RC input type (PPM on GPIO24 expected by board)
-- [ ] Test RC channel mapping and failsafe
+- [x] Connect RC receiver to input pins
+- [x] Configure PX4 for RC input type (PPM on GPIO24 expected by board)
+- [x] Test RC channel mapping and failsafe
 
 ### Telemetry
 - [x] MAVLink telemetry via USB CDC
 - [ ] Optional: configure external telemetry radio on UART (if required)
 
 ## Final Validation
-- [ ] Calibrate all sensors (IMU, mag, baro, RC)
+- [x] Calibrate all sensors (IMU, mag, baro, RC)
 - [ ] Test arming/disarming and flight modes
 - [ ] Perform bench test of all features
-- [ ] Document pin mappings and configuration in `docs/rp2040-pinout.txt`
 
 ## Current Blockers / Notes
-- EKF2 is not enabled by default (EKF2_EN=0, ATT_EN=1) and EKF2 bring-up is still pending due to CPU/load constraints on RP2040.
-- PWM outputs are present, but motor functions are not assigned yet (pwm_out shows func 0 on channels).
-- GPS currently shows NOT OK (0 B/s) and needs wiring/serial parameter verification.
+- Stuck at a crossroad where using EFK2 provides bettter estimation (velocity, position,attitude) but has more cpu usage, AttitudeEstimatorQ is much lighter on the cpu load, but only provides attitude and does not start on boot, needs to be manually started from NuttX shell.
 
 ---
 

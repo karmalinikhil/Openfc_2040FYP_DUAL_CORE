@@ -72,6 +72,7 @@ int up_pwm_servo_init(uint32_t channel_mask)
 {
 	/* Init channels */
 	uint32_t current = io_timer_get_mode_channels(IOTimerChanMode_PWMOut);
+	int channels_init_mask = 0;
 
 	// First free the current set of PWMs
 
@@ -93,12 +94,16 @@ int up_pwm_servo_init(uint32_t channel_mask)
 				io_timer_free_channel(channel);
 			}
 
-			io_timer_channel_init(channel, IOTimerChanMode_PWMOut, NULL, NULL);
+			int ret = io_timer_channel_init(channel, IOTimerChanMode_PWMOut, NULL, NULL);
 			channel_mask &= ~(1 << channel);
+
+			if (ret == OK) {
+				channels_init_mask |= 1 << channel;
+			}
 		}
 	}
 
-	return OK;
+	return channels_init_mask;
 }
 
 void up_pwm_servo_deinit(uint32_t channel_mask)

@@ -1,3 +1,4 @@
+
 # MicroSD Card Parameter Storage Setup for Raspberry Pi Pico
 
 ## Overview
@@ -62,7 +63,7 @@ make raspberrypi_pico_default
 1. Hold **BOOTSEL** button on Pico
 2. Plug in USB cable (keep holding BOOTSEL)
 3. Release BOOTSEL
-4. Drag and drop `sd_card.uf2` to the Pico mass storage device
+4. Drag and drop .uf2 file to the Pico mass storage device
 5. Wait for reboot
 
 ### Step 6: Insert MicroSD Card
@@ -276,7 +277,3 @@ The rest happens automatically:
 That's it! 🎉
 
 ---
-
-*Last Updated: December 17, 2025*  
-*For: OpenFC2040 FYP Project*  
-*Platform: Raspberry Pi Pico + PX4*

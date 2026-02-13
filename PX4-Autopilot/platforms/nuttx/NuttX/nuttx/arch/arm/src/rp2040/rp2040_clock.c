@@ -225,7 +225,8 @@ void clocks_init(void)
          (RP2040_RESETS_RESET_PLL_SYS | RP2040_RESETS_RESET_PLL_USB))
     ;
 
-  rp2040_pll_init(RP2040_PLL_SYS_BASE, 1, 1500 * MHZ, 6, 2);
+  /* PLL SYS: 12 / 1 = 12MHz * 100 = 1200MHz / 3 / 2 = 200MHz (overclocked) */
+  rp2040_pll_init(RP2040_PLL_SYS_BASE, 1, 1200 * MHZ, 3, 2);
   rp2040_pll_init(RP2040_PLL_USB_BASE, 1, 480 * MHZ, 5, 2);
 
   /* Configure clocks */
@@ -270,12 +271,15 @@ void clocks_init(void)
                          BOARD_PLL_USB_FREQ,
                          BOARD_RTC_FREQ);
 
-  /* CLK PERI = clk_sys. */
+  /* CLK PERI = PLL USB (48MHz) - decoupled from clk_sys for stable
+   * UART/SPI/I2C timing when clk_sys is overclocked.
+   * This is what the official Pico SDK does when overclocking.
+   */
 
   rp2040_clock_configure(RP2040_CLOCKS_NDX_PERI,
                          0,
-                         RP2040_CLOCKS_CLK_PERI_CTRL_AUXSRC_CLK_SYS,
-                         BOARD_SYS_FREQ,
+                         RP2040_CLOCKS_CLK_PERI_CTRL_AUXSRC_CLKSRC_PLL_USB,
+                         BOARD_PLL_USB_FREQ,
                          BOARD_PERI_FREQ);
 }
 

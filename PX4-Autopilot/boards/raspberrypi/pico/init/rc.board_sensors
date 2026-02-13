@@ -7,29 +7,34 @@
 # INTERNAL SENSORS (Required - always present on board)
 # =============================================================================
 
-# 1. Start ADC
-# Necessary for Battery Voltage (GPIO27) and Current (GPIO28) monitoring
+# ADC for Battery Voltage (GPIO27) and Current (GPIO28)
 board_adc start
 
-# 2. Start IMU: LSM6DS3TR-C (native driver support)
-# -s : Internal SPI bus
-# -R : Rotation (0 = ROTATION_NONE)
+# IMU: LSM6DS3TR-C on SPI1
 lsm6ds3 start -s -R 0
 
-# 3. Start Barometer: DPS310
-# -s : Internal SPI bus
+# Barometer: DPS310 on SPI1
 dps310 start -s
 
 # =============================================================================
 # EXTERNAL SENSORS (Optional - connected via JST-GH connector)
-# Temporarily DISABLED to restore boot stability.
-# Re-enable later once GPS/Mag bring-up is debugged.
 # =============================================================================
 
-# 4. GPS on UART1 (/dev/ttyS1) - DISABLED
-# gps start -d /dev/ttyS1 -p ubx
+# GPS on UART1 (/dev/ttyS1)
+gps start -d /dev/ttyS1 -p ubx
 
-# 5. External Magnetometer on I2C Bus 1 (Hardware I2C1: GPIO6/GPIO7) - DISABLED
- qmc5883l -X -b 1 -R 0 -q start
- hmc5883  -T -X -b 1 -R 0 -q start
- ist8310  -X -b 1 -R 0 -q start
+# External Magnetometer on I2C1 (GPIO6/GPIO7)
+# Auto-detect: Try all common GPS module magnetometers
+# Only one will succeed based on what's actually connected
+# -X = external, -b 1 = I2C bus 1, -R 0 = no rotation, -q = quiet (no error if not found)
+qmc5883l -X -b 1 -R 0 -q start   # I2C addr 0x0D (most common in BN-880 modules)
+hmc5883 -X -b 1 -R 0 -q start    # I2C addr 0x1E (Honeywell/clone)
+ist8310 -X -b 1 -R 0 -q start    # I2C addr 0x0E (common in uBlox GPS modules)
+
+# =============================================================================
+# ATTITUDE ESTIMATOR
+# =============================================================================
+# Q attitude estimator auto-starts based on SYS_MC_EST_GROUP=2 parameter
+# (set in rc.board_defaults)
+# Do NOT manually start it here - let the commander module start it after
+# all sensors are initialized and ready   

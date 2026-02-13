@@ -3,26 +3,133 @@
 # board specific defaults
 #------------------------------------------------------------------------------
 
+# Store parameters on SD card
 param select /fs/microsd/params
 
+# Use EKF2 for full state estimation (attitude + position + velocity)
+# EKF2 fuses IMU, baro, GPS, and mag for complete navigation solution
+param set-default SYS_MC_EST_GROUP 1
+
+# Stub MC position control params (modules disabled, but libs reference them)
+param set-default MPC_MAN_Y_MAX 150
+param set-default MPC_XY_P 0.95
+
+# RC input via PPM on GPIO24
+set RC_INPUT_ARGS ""
+param set-default RC_INPUT_PROTO 1
+
+# Battery monitoring
 param set-default BAT1_V_DIV 13.653333333
 param set-default BAT1_A_PER_V 36.367515152
 
-# param set-default SYS_HAS_MAG 0
-# param set-default COM_ARM_WO_GPS 1
+# =============================================================================
+# MAGNETOMETER / COMPASS CONFIGURATION
+# =============================================================================
+# Enable magnetometer support for compass calibration in QGC
+# This allows QGC to show the compass calibration tab
+param set-default SYS_HAS_MAG 1
+
+# Allow arming without GPS fix (for bench testing / indoor use)
+param set-default COM_ARM_WO_GPS 1
+
+# =============================================================================
+# FAILURE DETECTION CONFIGURATION
+# =============================================================================
+# Increase roll/pitch failure thresholds for bench testing
+# Default is 60 deg, increase to avoid false triggers during testing
+param set-default FD_FAIL_R 180
+param set-default FD_FAIL_P 180
+
+# Disable motor failure detection (no prop feedback available)
+param set-default FD_ACT_EN 0
+
+# =============================================================================
+# EKF2 POSITION / ALTITUDE ESTIMATION
+# =============================================================================
+# EKF2 provides full state estimation using IMU + Baro + GPS + Mag
+# Position/altitude estimates will be available once GPS gets fix
 
 # system_power unavailable
 param set-default CBRK_SUPPLY_CHK 894281
 
-# Start RGB LED driver and set initial color to white
+# Disable Safety Switch (no physical button on board)
+param set-default CBRK_IO_SAFETY 22027
+
+# Generic Quadcopter X airframe
+param set-default SYS_AUTOSTART 4001
+
+# ---------------------------------------------------------
+# PWM Output Configuration
+# ---------------------------------------------------------
+# Timer 0 = PWM Slice 2 (GPIO 20, 21)
+# Timer 1 = PWM Slice 3 (GPIO 22, 23)
+# 50Hz for standard ESC calibration/testing
+param set-default PWM_MAIN_TIM0 50
+param set-default PWM_MAIN_TIM1 50
+
+# Motor function assignments (Quad X layout)
+param set-default PWM_MAIN_FUNC1 101
+param set-default PWM_MAIN_FUNC2 102
+param set-default PWM_MAIN_FUNC3 103
+param set-default PWM_MAIN_FUNC4 104
+
+# PWM pulse width range for ESCs (standard PWM protocol)
+# Disarmed = 1000us (ESC off), Min = 1100us, Max = 1900us
+param set-default PWM_MAIN_DIS1 1000
+param set-default PWM_MAIN_DIS2 1000
+param set-default PWM_MAIN_DIS3 1000
+param set-default PWM_MAIN_DIS4 1000
+param set-default PWM_MAIN_MIN1 1100
+param set-default PWM_MAIN_MIN2 1100
+param set-default PWM_MAIN_MIN3 1100
+param set-default PWM_MAIN_MIN4 1100
+param set-default PWM_MAIN_MAX1 1900
+param set-default PWM_MAIN_MAX2 1900
+param set-default PWM_MAIN_MAX3 1900
+param set-default PWM_MAIN_MAX4 1900
+
+# ---------------------------------------------------------
+# Startup Sequence
+# ---------------------------------------------------------
+# RGB LED driver
 rgbled_gpio start
+
+# Events module - handles LED and buzzer status notifications
+# This provides visual/audio feedback for:
+# - Arming/disarming, sensor status, GPS lock
+# - Battery warnings, RC loss, failsafes
+events start
+
+# Set initial LED state (white = booting/initializing)
 led_control on -c white
 
-# Delay to let system boot complete before starting NSH on UART
-sleep 2
+# PWM motor output
+pwm_out start
 
-# Start NSH terminal on UART0 (Telemetry Port: GPIO0/GPIO1)
-# Connect via USB-to-TTL adapter at 57600 baud
-nshterm /dev/ttyS0 &
-
+# Buzzer - provides audio feedback via status tunes
 tone_alarm start
+
+# Play startup tune to confirm boot
+tune_control play -t 1
+
+# =============================================================================
+# LED STATUS BEHAVIOR (controlled by events module)
+# =============================================================================
+# The events module automatically controls LED colors based on vehicle state:
+# - BLUE breathing: Disarmed, ready
+# - GREEN solid: Armed, flying
+# - YELLOW blinking: Low battery warning  
+# - RED blinking: Error/failsafe condition
+# - PURPLE: GPS acquiring/no fix
+# - WHITE: Calibration mode
+
+# NSH console is on UART0 via CONFIG_UART0_SERIAL_CONSOLE
+# Do NOT start nshterm here - it would create a second reader
+# on the same UART, causing character-stealing on RX
+
+# =============================================================================
+# EKF2 STATE ESTIMATOR
+# =============================================================================
+# EKF2 auto-starts based on SYS_MC_EST_GROUP=1 parameter
+# Provides: roll, pitch, yaw, position (x,y,z), velocity, and altitude
+# Note: Position estimates require GPS fix and compass calibration

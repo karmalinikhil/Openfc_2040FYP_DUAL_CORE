@@ -1,5 +1,3 @@
-# Dual Console Setup: NSH on UART0 + MAVLink on USB CDC
-
 This guide documents how to configure the OpenFC2040 board to have:
 - **NSH Shell** on UART0 (Telemetry Port) via USB-to-TTL adapter
 - **MAVLink** on USB CDC for QGroundControl/Mission Planner
@@ -41,7 +39,6 @@ Simply connect the board's microUSB port directly to your computer using a micro
 
 ### 1. `boards/raspberrypi/pico/nuttx-config/nsh/defconfig`
 
-**Key Settings:**
 
 ```makefile
 # UART0 enabled but NOT as serial console
@@ -77,7 +74,7 @@ CONFIG_SYSTEM_CDCACM=y
 
 ### 2. `boards/raspberrypi/pico/default.px4board`
 
-**Key Change - Remove Telemetry Port Assignment:**
+**Remove Telemetry Port Assignment:**
 
 ```makefile
 # ---------------------------------------------------------

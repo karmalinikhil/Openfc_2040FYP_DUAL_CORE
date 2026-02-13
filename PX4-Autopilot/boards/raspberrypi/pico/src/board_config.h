@@ -43,15 +43,13 @@
 #include <nuttx/compiler.h>
 #include <stdint.h>
 
-/* * ---------------------------------------------------------
- * LEDs (RGB)
- * ---------------------------------------------------------
- * Physical wiring verified from schematic (openFC2040.json):
- * GPIO13 = RED (with 162Ω series resistor)
- * GPIO14 = GREEN (with 60.4Ω series resistor)
- * GPIO15 = BLUE (with 100Ω series resistor)
- * Active LOW polarity (0V = LED ON, 3.3V = LED OFF)
- */
+/*
+LED (RGB)
+GPIO13 = RED (with 162Ω series resistor)
+GPIO14 = GREEN (with 60.4Ω series resistor)
+GPIO15 = BLUE (with 100Ω series resistor)
+Active LOW polarity (0V = LED ON, 3.3V = LED OFF)
+*/
 #define GPIO_LED_RED    PX4_MAKE_GPIO_OUTPUT_CLEAR(13)
 #define GPIO_LED_GREEN  PX4_MAKE_GPIO_OUTPUT_CLEAR(14)
 #define GPIO_LED_BLUE   PX4_MAKE_GPIO_OUTPUT_CLEAR(15)
@@ -62,35 +60,36 @@
 #define BOARD_ARMED_LED        LED_BLUE
 #define BOARD_HAS_CONTROL_STATUS_LEDS 1
 
-/* * ---------------------------------------------------------
- * ADC / Battery
- * ---------------------------------------------------------
- * BATT_V: GPIO27 (ADC1), BATT_A: GPIO28 (ADC2)
- */
+/* Disable NuttX auto-LED to prevent conflict with PX4 rgbled_gpio driver
+ RGB LED control is exclusively handled by PX4 application layer */
+
+
+
+/*
+ADC / Battery
+BATT_V: GPIO27 (ADC1), BATT_A: GPIO28 (ADC2)
+*/
 // Channel Bitmask: ADC1 (bit 1) and ADC2 (bit 2)
 #define ADC_CHANNELS ((1 << 1) | (1 << 2)) 
 
 #define ADC_BATTERY_VOLTAGE_CHANNEL  1  // GPIO 27
 #define ADC_BATTERY_CURRENT_CHANNEL  2  // GPIO 28
 
-/* * ---------------------------------------------------------
- * BUZZER (Passive)
- * ---------------------------------------------------------
- * Huaneng QMB-09B-03 on GPIO 25
+/* 
+Passive buzzer (resosnant frequency = 2700 Hz +- 300 Hz)
+Huaneng QMB-09B-03 on GPIO 25
  */
 #define GPIO_TONE_ALARM_1    PX4_MAKE_GPIO_OUTPUT_CLEAR(25)
 
-/* * ---------------------------------------------------------
- * RC INPUT
- * ---------------------------------------------------------
- * RC Input: GPIO24
- * Note: We use PIO/PPM so we don't conflict with GPS UART 
- */
+/* 
+RC Input: GPIO24
+Note: We use PIO/PPM so we don't conflict with GPS UART 
+*/
 #define HRT_TIMER 1
 #define HRT_TIMER_CHANNEL 1
 #define HRT_PPM_CHANNEL 1    
 // Mapped to GPIO 24
-#define GPIO_PPM_IN        (24 | GPIO_FUN(RP2040_GPIO_FUNC_SIO)) 
+#define GPIO_PPM_IN        PX4_MAKE_GPIO_INPUT(24)
 
 // If using Serial RC (CRSF/ELRS/SBUS) via UART1 on these pins:
 // Note: UART1 is also used by GPS (GPIO 4/5). You cannot use Hardware UART1 

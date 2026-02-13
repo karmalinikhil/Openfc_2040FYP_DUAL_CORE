@@ -55,7 +55,7 @@
          // IMU: LSM6DS3TR-C - native driver support
          // CS is GPIO 9
          initSPIDevice(DRV_IMU_DEVTYPE_ST_LSM6DS3, SPI::CS{GPIO::Pin9}),
-
+         
          // Barometer: DPS310
          // CS is GPIO 12
          initSPIDevice(DRV_BARO_DEVTYPE_DPS310, SPI::CS{GPIO::Pin12}),
