@@ -2183,44 +2183,47 @@ void Commander::vtolStatusUpdate()
 
 void Commander::updateTunes()
 {
-	// play arming and battery warning tunes
-	if (!_arm_tune_played && isArmed()) {
+	if (isArmed()) {
+		/* Armed: play loud 2700Hz beep, suppress all other tunes.
+		 * set_tune_armed_2700hz() uses tune_override=true so it always wins. */
+		set_tune_armed_2700hz();
 
-		/* play tune when armed */
-		set_tune(tune_control_s::TUNE_ID_ARMING_WARNING);
-		_arm_tune_played = true;
-
-	} else if (!_vehicle_status.usb_connected &&
-		   (_vehicle_status.hil_state != vehicle_status_s::HIL_STATE_ON) &&
-		   (_battery_warning == battery_status_s::WARNING_CRITICAL)) {
-
-		/* play tune on battery critical */
-		set_tune(tune_control_s::TUNE_ID_BATTERY_WARNING_FAST);
-
-	} else if ((_vehicle_status.hil_state != vehicle_status_s::HIL_STATE_ON) &&
-		   (_battery_warning == battery_status_s::WARNING_LOW)) {
-		/* play tune on battery warning */
-		set_tune(tune_control_s::TUNE_ID_BATTERY_WARNING_SLOW);
-
-	} else if (_vehicle_status.failsafe && isArmed()) {
-		tune_failsafe(true);
-
-	} else if (_multicopter_throw_launch.isReadyToThrow()) {
-		set_tune(tune_control_s::TUNE_ID_ARMING_WARNING);
-
-	} else {
-		set_tune(tune_control_s::TUNE_ID_STOP);
-	}
-
-	/* reset arm_tune_played when disarmed */
-	if (!isArmed()) {
-
-		// Notify the user that it is safe to approach the vehicle
-		if (_arm_tune_played) {
-			tune_neutral(true);
+		if (!_arm_tune_played) {
+			_arm_tune_played = true;
 		}
 
-		_arm_tune_played = false;
+	} else {
+		/* Disarmed state tunes */
+
+		// Notify the user that it is safe to approach the vehicle (once after disarm)
+		if (_arm_tune_played) {
+			tune_neutral(true);
+			_arm_tune_played = false;
+		}
+
+		if (!_vehicle_status.usb_connected &&
+		    (_vehicle_status.hil_state != vehicle_status_s::HIL_STATE_ON) &&
+		    (_battery_warning == battery_status_s::WARNING_CRITICAL)) {
+
+			/* play tune on battery critical */
+			set_tune(tune_control_s::TUNE_ID_BATTERY_WARNING_FAST);
+
+		} else if ((_vehicle_status.hil_state != vehicle_status_s::HIL_STATE_ON) &&
+			   (_battery_warning == battery_status_s::WARNING_LOW)) {
+
+			/* play tune on battery warning */
+			set_tune(tune_control_s::TUNE_ID_BATTERY_WARNING_SLOW);
+
+		} else if (_multicopter_throw_launch.isReadyToThrow()) {
+			set_tune(tune_control_s::TUNE_ID_ARMING_WARNING);
+
+		} else if (_vehicle_status.pre_flight_checks_pass) {
+			/* Ready to arm: repeating single beep so pilot knows SWA can arm */
+			set_tune(tune_control_s::TUNE_ID_SINGLE_BEEP);
+
+		} else {
+			set_tune(tune_control_s::TUNE_ID_STOP);
+		}
 	}
 }
 
@@ -2461,7 +2464,6 @@ void Commander::control_status_leds(bool changed, const uint8_t battery_warning)
 	if (changed || _last_overload != overload) {
 		uint8_t led_mode = led_control_s::MODE_OFF;
 		uint8_t led_color = led_control_s::COLOR_WHITE;
-		bool set_normal_color = false;
 
 		uint64_t overload_warn_delay = isArmed() ? 1_ms : 250_ms;
 
@@ -2475,41 +2477,25 @@ void Commander::control_status_leds(bool changed, const uint8_t battery_warning)
 			led_color = led_control_s::COLOR_YELLOW;
 
 		} else if (isArmed()) {
-			led_mode = led_control_s::MODE_ON;
-			set_normal_color = true;
+			/* Armed: fast-blink RED at max priority, override all other LED sources */
+			led_mode = led_control_s::MODE_BLINK_FAST;
+			led_color = led_control_s::COLOR_RED;
 
 		} else if (!_vehicle_status.pre_flight_checks_pass) {
 			led_mode = led_control_s::MODE_BLINK_FAST;
 			led_color = led_control_s::COLOR_RED;
 
 		} else {
-			led_mode = led_control_s::MODE_BREATHE;
-			set_normal_color = true;
-		}
-
-		if (set_normal_color) {
-			// set color
-			if (_vehicle_status.failsafe) {
-				led_color = led_control_s::COLOR_PURPLE;
-
-			} else if (battery_warning == battery_status_s::WARNING_LOW) {
-				led_color = led_control_s::COLOR_AMBER;
-
-			} else if (battery_warning == battery_status_s::WARNING_CRITICAL) {
-				led_color = led_control_s::COLOR_RED;
-
-			} else {
-				if (!_failsafe_flags.home_position_invalid && !_failsafe_flags.global_position_invalid) {
-					led_color = led_control_s::COLOR_GREEN;
-
-				} else {
-					led_color = led_control_s::COLOR_BLUE;
-				}
-			}
+			/* Ready to arm: normal-blink RED at max priority so pilot knows to flip SWA */
+			led_mode = led_control_s::MODE_BLINK_NORMAL;
+			led_color = led_control_s::COLOR_RED;
 		}
 
 		if (led_mode != led_control_s::MODE_OFF) {
-			rgbled_set_color_and_mode(led_color, led_mode);
+			/* Use MAX_PRIORITY=2 when armed or ready-to-arm to override all other LED sources */
+			const uint8_t led_prio = (isArmed() || _vehicle_status.pre_flight_checks_pass)
+						 ? led_control_s::MAX_PRIORITY : 0;
+			rgbled_set_color_and_mode(led_color, led_mode, 0, led_prio);
 		}
 	}
 

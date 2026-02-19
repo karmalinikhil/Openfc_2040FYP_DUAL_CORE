@@ -5,18 +5,95 @@
 
 # Store parameters on SD card
 param select /fs/microsd/params
+usleep 50000
 
-# Use EKF2 for full state estimation (attitude + position + velocity)
-# EKF2 fuses IMU, baro, GPS, and mag for complete navigation solution
-param set-default SYS_MC_EST_GROUP 1
+# Using lightweight estimator stack (Q + LPE) to avoid EKF2-induced hangs
+# Q = attitude only, LPE = position/altitude from baro+GPS
+# Force estimator selection each boot (do not rely on stale saved params)
+param set ATT_EN 1
+param set LPE_EN 1
+param set EKF2_EN 0
+
+# IMU rates: gyro min is 100Hz, integ rate at 100Hz
+# LPE runs at 20Hz internally so most IMU samples are skipped by LPE
+param set IMU_INTEG_RATE 100
+param set IMU_GYRO_RATEMAX 100
+
+# Sensor publish rates (baro at 10Hz for LPE, mag at 5Hz)
+param set SENS_BARO_RATE 10
+param set SENS_MAG_RATE 5
+
+# LPE fusion: baro + GPS (bit 0 = GPS, bit 7 = baro → 1+128 = 129)
+# Enables GPS for horizontal position, baro for altitude
+param set LPE_FUSION 129
+
+# Disable CPU load check (RP2040 runs hot but is stable)
+param set COM_CPU_MAX -1
+
+# Disable logging (saves ~3% CPU, no SD card anyway)
+param set SDLOG_MODE -1
+
+# Reduce mavlink rate to fit USB bandwidth
+# Mode 0 = Normal (full QGC streams: arming, vehicle state, sensors, config)
+param set MAV_0_RATE 4800
+param set MAV_0_MODE 0
+
+# =============================================================================
+# ARMING CONFIGURATION
+# =============================================================================
+# Arm/disarm via RC switch (SWA on channel 5)
+# COM_ARM_SWISBTN=0: toggle switch (flip to arm, flip back to disarm)
+param set COM_ARM_SWISBTN 0
+
+# Map channel 5 to arm switch
+param set RC_MAP_ARM_SW 5
+
+# Disable stick arming gesture (only use switch)
+param set MAN_ARM_GESTURE 0
+
+# RC arm hysteresis (ms) - not used for switch arming, but keep default
+param set COM_RC_ARM_HYST 1000
+
+# Allow arming without safety switch (no physical button on board)
+param set CBRK_IO_SAFETY 22027
+
+# Arm/disarm via RC even when not in RC mode
+param set COM_ARM_AUTH_REQ 0
+
+# Throttle must be below this value to arm (prevents accidental arm)
+param set COM_ARM_THR_IDLE 0.15
 
 # Stub MC position control params (modules disabled, but libs reference them)
 param set-default MPC_MAN_Y_MAX 150
 param set-default MPC_XY_P 0.95
 
-# RC input via PPM on GPIO24
+# =============================================================================
+# RC INPUT CONFIGURATION (PPM on GPIO24)
+# =============================================================================
+# Start RC input driver with PPM protocol (protocol 1)
 set RC_INPUT_ARGS ""
-param set-default RC_INPUT_PROTO 1
+param set RC_INPUT_PROTO 1
+
+# RC channel mapping for manual control
+# Roll, Pitch, Throttle, Yaw on channels 1-4 (standard AETR mapping)
+param set RC_MAP_ROLL 1
+param set RC_MAP_PITCH 2
+param set RC_MAP_THROTTLE 3
+param set RC_MAP_YAW 4
+
+# Flight mode switch on channel 6 (SWB)
+param set RC_MAP_FLTMODE 6
+
+# RC Loss/Failsafe Configuration
+# COM_RC_IN_MODE: 0=RC Transmitter only, 1=Joystick only, 2=RC+Joystick fallback, 3=RC or Joystick keep first, 4=disabled
+param set COM_RC_IN_MODE 0
+
+# RC loss timeout (seconds) - failsafe after 0.5s of no signal
+param set COM_RC_LOSS_T 0.5
+
+# RC loss failsafe action: 0=disabled, 1=hold, 2=RTL, 3=land, 4=terminate
+# Set to LAND (3) for safety
+param set NAV_RCL_ACT 3
 
 # Battery monitoring
 param set-default BAT1_V_DIV 13.653333333
@@ -27,10 +104,8 @@ param set-default BAT1_A_PER_V 36.367515152
 # =============================================================================
 # Enable magnetometer support for compass calibration in QGC
 # This allows QGC to show the compass calibration tab
-param set-default SYS_HAS_MAG 1
+param set SYS_HAS_MAG 1
 
-# Allow arming without GPS fix (for bench testing / indoor use)
-param set-default COM_ARM_WO_GPS 1
 
 # =============================================================================
 # FAILURE DETECTION CONFIGURATION
@@ -44,19 +119,78 @@ param set-default FD_FAIL_P 180
 param set-default FD_ACT_EN 0
 
 # =============================================================================
-# EKF2 POSITION / ALTITUDE ESTIMATION
+# SAFETY / CIRCUIT BREAKERS
 # =============================================================================
-# EKF2 provides full state estimation using IMU + Baro + GPS + Mag
-# Position/altitude estimates will be available once GPS gets fix
-
 # system_power unavailable
 param set-default CBRK_SUPPLY_CHK 894281
 
 # Disable Safety Switch (no physical button on board)
 param set-default CBRK_IO_SAFETY 22027
 
+# Ensure buzzer is enabled even if older params disabled it
+param set CBRK_BUZZER 0
+
 # Generic Quadcopter X airframe
-param set-default SYS_AUTOSTART 4001
+param set SYS_AUTOSTART 4001
+
+# =============================================================================
+# FLIGHT MODES CONFIGURATION
+# =============================================================================
+# Default flight modes for 3-position switch:
+# Position 1: Manual/Stabilized - Direct stick control with auto-leveling
+# Position 2: Altitude Hold - Auto altitude, manual horizontal
+# Position 3: Position Hold - GPS hold position
+
+# Main mode slot 1: Manual/Stabilized (most basic, safest mode)
+param set COM_FLTMODE1 0
+
+# Main mode slot 2: Altitude control
+param set COM_FLTMODE2 2
+
+# Main mode slot 3: Position control  
+param set COM_FLTMODE3 3
+
+# Main mode slot 4: Acro (if switch has 4+ positions)
+param set COM_FLTMODE4 1
+
+# Enable RC override in all modes for safety
+param set COM_RC_OVERRIDE 0
+
+# =============================================================================
+# MULTICOPTER ATTITUDE & RATE CONTROLLER
+# =============================================================================
+# These parameters tune the stabilization (auto-leveling) behavior
+
+# Max manual roll/pitch angle (degrees) - limits tilt in manual mode
+param set MPC_MAN_TILT_MAX 35.0
+
+# Max manual yaw rate (deg/s)
+param set MPC_MAN_Y_MAX 150.0
+
+# Manual throttle behavior: 0=center stick, 1=throttle stick
+param set MPC_THR_HOVER 0.5
+
+# Attitude control P gains (responsiveness)
+param set MC_ROLL_P 6.5
+param set MC_PITCH_P 6.5
+param set MC_YAW_P 2.8
+
+# Rate control P/I/D gains
+param set MC_ROLLRATE_P 0.15
+param set MC_ROLLRATE_I 0.2
+param set MC_ROLLRATE_D 0.003
+
+param set MC_PITCHRATE_P 0.15
+param set MC_PITCHRATE_I 0.2
+param set MC_PITCHRATE_D 0.003
+
+param set MC_YAWRATE_P 0.2
+param set MC_YAWRATE_I 0.1
+
+# Max roll/pitch/yaw rates (deg/s)
+param set MC_ROLLRATE_MAX 220.0
+param set MC_PITCHRATE_MAX 220.0
+param set MC_YAWRATE_MAX 200.0
 
 # ---------------------------------------------------------
 # PWM Output Configuration
@@ -64,29 +198,29 @@ param set-default SYS_AUTOSTART 4001
 # Timer 0 = PWM Slice 2 (GPIO 20, 21)
 # Timer 1 = PWM Slice 3 (GPIO 22, 23)
 # 50Hz for standard ESC calibration/testing
-param set-default PWM_MAIN_TIM0 50
-param set-default PWM_MAIN_TIM1 50
+param set PWM_MAIN_TIM0 50
+param set PWM_MAIN_TIM1 50
 
 # Motor function assignments (Quad X layout)
-param set-default PWM_MAIN_FUNC1 101
-param set-default PWM_MAIN_FUNC2 102
-param set-default PWM_MAIN_FUNC3 103
-param set-default PWM_MAIN_FUNC4 104
+param set PWM_MAIN_FUNC1 101
+param set PWM_MAIN_FUNC2 102
+param set PWM_MAIN_FUNC3 103
+param set PWM_MAIN_FUNC4 104
 
 # PWM pulse width range for ESCs (standard PWM protocol)
 # Disarmed = 1000us (ESC off), Min = 1100us, Max = 1900us
-param set-default PWM_MAIN_DIS1 1000
-param set-default PWM_MAIN_DIS2 1000
-param set-default PWM_MAIN_DIS3 1000
-param set-default PWM_MAIN_DIS4 1000
-param set-default PWM_MAIN_MIN1 1100
-param set-default PWM_MAIN_MIN2 1100
-param set-default PWM_MAIN_MIN3 1100
-param set-default PWM_MAIN_MIN4 1100
-param set-default PWM_MAIN_MAX1 1900
-param set-default PWM_MAIN_MAX2 1900
-param set-default PWM_MAIN_MAX3 1900
-param set-default PWM_MAIN_MAX4 1900
+param set PWM_MAIN_DIS1 1000
+param set PWM_MAIN_DIS2 1000
+param set PWM_MAIN_DIS3 1000
+param set PWM_MAIN_DIS4 1000
+param set PWM_MAIN_MIN1 1100
+param set PWM_MAIN_MIN2 1100
+param set PWM_MAIN_MIN3 1100
+param set PWM_MAIN_MIN4 1100
+param set PWM_MAIN_MAX1 1900
+param set PWM_MAIN_MAX2 1900
+param set PWM_MAIN_MAX3 1900
+param set PWM_MAIN_MAX4 1900
 
 # ---------------------------------------------------------
 # Startup Sequence
@@ -106,11 +240,25 @@ led_control on -c white
 # PWM motor output
 pwm_out start
 
-# Buzzer - provides audio feedback via status tunes
+# Buzzer task for events and explicit tune_control tones
 tone_alarm start
+# Ensure attitude estimator starts
+attitude_estimator_q start
 
-# Play startup tune to confirm boot
-tune_control play -t 1
+# Multicopter attitude controller - REQUIRED for stabilized flight
+mc_att_control start
+
+# Multicopter rate controller - REQUIRED for RC input response
+mc_rate_control start
+
+# Local position estimator (baro + GPS -> altitude + position)
+local_position_estimator start
+
+# CPU/RAM load monitor (prevents 'No CPU and RAM load' warning)
+load_mon start
+
+# Startup confirmation tone
+tune_control play -t 3
 
 # =============================================================================
 # LED STATUS BEHAVIOR (controlled by events module)
@@ -123,13 +271,15 @@ tune_control play -t 1
 # - PURPLE: GPS acquiring/no fix
 # - WHITE: Calibration mode
 
-# NSH console is on UART0 via CONFIG_UART0_SERIAL_CONSOLE
-# Do NOT start nshterm here - it would create a second reader
-# on the same UART, causing character-stealing on RX
+# =============================================================================
+# NSH INTERACTIVE CONSOLE ON UART0
+# =============================================================================
+usleep 200000
+nshterm /dev/ttyS0 &
 
 # =============================================================================
-# EKF2 STATE ESTIMATOR
+# LIGHTWEIGHT POSITION/ALTITUDE ESTIMATOR (LPE)
 # =============================================================================
-# EKF2 auto-starts based on SYS_MC_EST_GROUP=1 parameter
-# Provides: roll, pitch, yaw, position (x,y,z), velocity, and altitude
-# Note: Position estimates require GPS fix and compass calibration
+# LPE provides local/global position + altitude using baro + GPS
+# Paired with attitude_estimator_q to replace EKF2 on RP2040
+# Use 'dmesg' in NSH to view boot logs

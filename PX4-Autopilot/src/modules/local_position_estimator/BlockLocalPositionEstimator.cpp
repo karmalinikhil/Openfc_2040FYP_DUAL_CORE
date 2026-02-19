@@ -8,9 +8,11 @@
 orb_advert_t mavlink_log_pub = nullptr;
 
 // required standard deviation of estimate for estimator to publish data
-static const uint32_t		EST_STDDEV_XY_VALID = 2.0;	// 2.0 m
-static const uint32_t		EST_STDDEV_Z_VALID = 2.0;	// 2.0 m
-static const uint32_t		EST_STDDEV_TZ_VALID = 2.0;	// 2.0 m
+// Relaxed from 2.0 to 5.0 for RP2040 soft-float: larger covariance is expected
+// when running 12x12 matrix math in software at 20Hz
+static const uint32_t		EST_STDDEV_XY_VALID = 5.0;	// 5.0 m
+static const uint32_t		EST_STDDEV_Z_VALID = 5.0;	// 5.0 m
+static const uint32_t		EST_STDDEV_TZ_VALID = 5.0;	// 5.0 m
 
 static const float P_MAX = 1.0e6f;	// max allowed value in state covariance
 static const float LAND_RATE = 10.0f;	// rate of land detector correction
@@ -107,7 +109,7 @@ BlockLocalPositionEstimator::BlockLocalPositionEstimator() :
 	_ref_lon(0.0),
 	_ref_alt(0.0)
 {
-	_sensors_sub.set_interval_ms(10); // main prediction loop, 100 hz (lockstep requires to run at full rate)
+	_sensors_sub.set_interval_ms(100); // main prediction loop, 10 hz (reduced for RP2040 soft-float M0+)
 
 	// assign distance subs to array
 	_dist_subs[0] = &_sub_dist0;

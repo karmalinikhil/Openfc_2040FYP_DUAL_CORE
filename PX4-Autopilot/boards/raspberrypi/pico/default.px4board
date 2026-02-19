@@ -10,8 +10,8 @@ CONFIG_NUM_MISSION_ITMES_SUPPORTED=10
 # Serial Port Mappings (RP2040 has 2 UARTs)
 # ---------------------------------------------------------
 # UART0 (GPIO 0/1): /dev/ttyS0 - NSH console
-# UART1 (GPS on GPIO 4/5): /dev/ttyS1
-# Telemetry on USB CDC (/dev/ttyACM0)
+# UART1 (GPIO 4/5): /dev/ttyS1 - GPS
+# USB CDC: /dev/ttyACM0 - MAVLink to QGC
 CONFIG_BOARD_SERIAL_GPS1="/dev/ttyS1"
 
 # ---------------------------------------------------------
@@ -36,21 +36,22 @@ CONFIG_DRIVERS_MAGNETOMETER_HMC5883=y
 CONFIG_DRIVERS_MAGNETOMETER_ISENTEK_IST8310=y
 
 # ---------------------------------------------------------
-# Modules (MINIMAL - optimized for RP2040 resource constraints)
-# EKF2 disabled, using Q attitude estimator for lightweight fusion
+# Modules (ULTRA-MINIMAL - optimized for RP2040 soft-float M0+)
+# Estimator stack: attitude_estimator_q + local_position_estimator
 # ---------------------------------------------------------
 CONFIG_MODULES_ATTITUDE_ESTIMATOR_Q=y
 CONFIG_MODULES_BATTERY_STATUS=y
 CONFIG_MODULES_COMMANDER=y
 CONFIG_MODULES_CONTROL_ALLOCATOR=y
 CONFIG_MODULES_DATAMAN=y
-CONFIG_MODULES_EKF2=y
+# CONFIG_MODULES_EKF2 is not set
 CONFIG_MODULES_EVENTS=y
-CONFIG_MODULES_FLIGHT_MODE_MANAGER=y
+# CONFIG_MODULES_FLIGHT_MODE_MANAGER is not set
 # CONFIG_MODULES_GYRO_CALIBRATION is not set
-# CONFIG_MODULES_LAND_DETECTOR is not set
+CONFIG_MODULES_LAND_DETECTOR=y
 CONFIG_MODULES_LOAD_MON=y
-CONFIG_MODULES_LOGGER=y
+CONFIG_MODULES_LOCAL_POSITION_ESTIMATOR=y
+# CONFIG_MODULES_LOGGER is not set
 # CONFIG_MODULES_MAG_BIAS_ESTIMATOR is not set
 CONFIG_MODULES_MANUAL_CONTROL=y
 CONFIG_MODULES_MAVLINK=y
@@ -63,7 +64,7 @@ CONFIG_MODULES_RC_UPDATE=y
 CONFIG_MODULES_SENSORS=y
 
 # ---------------------------------------------------------
-# System Commands (stripped to essentials + actuator_test)
+# System Commands (stripped to essentials)
 # ---------------------------------------------------------
 CONFIG_SYSTEMCMDS_ACTUATOR_TEST=y
 CONFIG_SYSTEMCMDS_DMESG=y

@@ -172,6 +172,22 @@ void set_tune_override(const int tune_id)
 	orb_publish(ORB_ID(tune_control), tune_control_pub, &tune_control);
 }
 
+void set_tune_armed_2700hz()
+{
+	/* Override every other tune with a loud 2700Hz repeating beep on arming.
+	 * TUNE_ID_CUSTOM (= 0): uses frequency/duration/silence fields directly.
+	 * 500ms on, 200ms silence, max volume.
+	 */
+	tune_control.tune_id    = 0; // TUNE_ID_CUSTOM
+	tune_control.frequency  = 2700;
+	tune_control.duration   = 500000; // 500 ms
+	tune_control.silence    = 200000; // 200 ms gap
+	tune_control.volume     = tune_control_s::VOLUME_LEVEL_MAX;
+	tune_control.tune_override = true;
+	tune_control.timestamp  = hrt_absolute_time();
+	orb_publish(ORB_ID(tune_control), tune_control_pub, &tune_control);
+}
+
 void set_tune(const int tune_id)
 {
 	const hrt_abstime current_time = hrt_absolute_time();

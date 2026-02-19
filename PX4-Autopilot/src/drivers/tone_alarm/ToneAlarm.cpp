@@ -43,7 +43,7 @@
 using namespace time_literals;
 
 ToneAlarm::ToneAlarm() :
-	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::hp_default)
+	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::lp_default)
 {
 }
 

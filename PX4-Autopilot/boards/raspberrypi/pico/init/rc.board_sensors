@@ -21,7 +21,7 @@ dps310 start -s
 # =============================================================================
 
 # GPS on UART1 (/dev/ttyS1)
-gps start -d /dev/ttyS1 -p ubx
+gps status > /dev/null || gps start -d /dev/ttyS1 -p ubx
 
 # External Magnetometer on I2C1 (GPIO6/GPIO7)
 # Auto-detect: Try all common GPS module magnetometers

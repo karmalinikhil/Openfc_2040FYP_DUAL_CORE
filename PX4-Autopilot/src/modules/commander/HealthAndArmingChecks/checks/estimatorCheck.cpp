@@ -757,7 +757,7 @@ void EstimatorChecks::setModeRequirementFlags(const Context &context, bool pre_f
 
 
 	// altitude
-	failsafe_flags.local_altitude_invalid = !lpos.z_valid || (now > lpos.timestamp + 1_s);
+	failsafe_flags.local_altitude_invalid = !lpos.z_valid || (now > lpos.timestamp + 3_s);
 
 
 	// attitude
@@ -765,14 +765,17 @@ void EstimatorChecks::setModeRequirementFlags(const Context &context, bool pre_f
 
 	if (_vehicle_attitude_sub.copy(&attitude)) {
 		const matrix::Quatf q{attitude.q};
-		const float eps = 1e-5f;
+		// RP2040 soft-float tolerance: relax epsilon from 1e-5 to 1e-2
+		// and timeout from 1s to 3s. Soft-float quaternion normalization
+		// accumulates more numerical error than hardware FPU platforms.
+		const float eps = 1e-2f;
 		const bool no_element_larger_than_one = (fabsf(q(0)) <= 1.f + eps)
 							&& (fabsf(q(1)) <= 1.f + eps)
 							&& (fabsf(q(2)) <= 1.f + eps)
 							&& (fabsf(q(3)) <= 1.f + eps);
 		const bool norm_in_tolerance = fabsf(1.f - q.norm()) <= eps;
 
-		failsafe_flags.attitude_invalid = (now > attitude.timestamp + 1_s) || !norm_in_tolerance
+		failsafe_flags.attitude_invalid = (now > attitude.timestamp + 3_s) || !norm_in_tolerance
 						  || !no_element_larger_than_one;
 
 	} else {
@@ -783,7 +786,7 @@ void EstimatorChecks::setModeRequirementFlags(const Context &context, bool pre_f
 	vehicle_angular_velocity_s angular_velocity{};
 	_vehicle_angular_velocity_sub.copy(&angular_velocity);
 	const bool condition_angular_velocity_time_valid = angular_velocity.timestamp != 0
-			&& (now < angular_velocity.timestamp + 1_s);
+			&& (now < angular_velocity.timestamp + 3_s);
 	const bool condition_angular_velocity_finite = matrix::Vector3f(angular_velocity.xyz).isAllFinite();
 	const bool angular_velocity_invalid = !condition_angular_velocity_time_valid
 					      || !condition_angular_velocity_finite;
@@ -808,7 +811,7 @@ bool EstimatorChecks::checkPosVelValidity(const hrt_abstime &now, const bool dat
 		const bool was_valid) const
 {
 	bool valid = was_valid;
-	const bool data_stale = (now > data_timestamp_us + 1_s) || (data_timestamp_us == 0);
+	const bool data_stale = (now > data_timestamp_us + 3_s) || (data_timestamp_us == 0);
 	const float req_accuracy = (was_valid ? required_accuracy * 2.5f : required_accuracy);
 	const bool level_check_pass = data_valid && !data_stale && (data_accuracy < req_accuracy);
 

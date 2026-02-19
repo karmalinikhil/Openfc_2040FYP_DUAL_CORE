@@ -471,3 +471,15 @@ PARAM_DEFINE_FLOAT(LPE_LT_COV, 0.0001f);
  * @bit 7  fuse baro
  */
 PARAM_DEFINE_INT32(LPE_FUSION, 145);
+
+/**
+ * Landing target mode
+ *
+ * 0 = target is moving (default), 1 = target is stationary
+ * Defined here since landing_target_estimator module may not be compiled.
+ *
+ * @group Local Position Estimator
+ * @min 0
+ * @max 1
+ */
+PARAM_DEFINE_INT32(LTEST_MODE, 0);

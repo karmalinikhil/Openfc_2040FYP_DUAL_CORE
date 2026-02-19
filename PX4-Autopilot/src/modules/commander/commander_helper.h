@@ -66,6 +66,11 @@ void buzzer_deinit(void);
 void set_tune_override(const int tune_id);
 
 /**
+ * @brief Play a loud 2700 Hz beep (override all other tunes) for arming
+ */
+void set_tune_armed_2700hz();
+
+/**
  * @brief Set the new tune to play under predefined conditions
  *
  * Setting a new tune will only be possible for the following 3 cases:
