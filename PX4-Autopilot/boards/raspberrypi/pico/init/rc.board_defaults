@@ -23,9 +23,15 @@ param set IMU_GYRO_RATEMAX 100
 param set SENS_BARO_RATE 10
 param set SENS_MAG_RATE 5
 
-# LPE fusion: baro + GPS (bit 0 = GPS, bit 7 = baro → 1+128 = 129)
+# LPE fusion: baro + GPS (bit 0 = GPS, bit 7 = baro -> 1+128 = 129)
 # Enables GPS for horizontal position, baro for altitude
 param set LPE_FUSION 129
+
+# IMU board orientation (0 = no rotation)
+# Must match the physical mounting of the LSM6DS3 on the PCB.
+# If the IMU chip X-axis does not point forward, set the matching
+# SENS_BOARD_ROT value (see QGC docs for rotation IDs).
+param set SENS_BOARD_ROT 0
 
 # Disable CPU load check (RP2040 runs hot but is stable)
 param set COM_CPU_MAX -1
@@ -62,6 +68,60 @@ param set COM_ARM_AUTH_REQ 0
 
 # Throttle must be below this value to arm (prevents accidental arm)
 param set COM_ARM_THR_IDLE 0.15
+
+# =============================================================================
+# GPS ARMING REQUIREMENTS
+# =============================================================================
+# Require a valid GPS 3D fix before arming is permitted.
+# COM_ARM_WO_GPS:
+#   0 = GPS lock REQUIRED to arm (blocks arm if no fix)  <-- selected
+#   1 = allow arming without GPS (not safe for flight)
+param set COM_ARM_WO_GPS 1
+
+# Declare that GPS is present on this vehicle.
+# Without this PX4 does not enforce GPS health checks consistently.
+#param set SYS_HAS_GPS 1
+
+# GPS health check: require at least a 3D fix (fix_type >= 3) before the
+# Commander marks GPS as healthy.  This is enforced internally by the
+# Commander when COM_ARM_WO_GPS=0; no extra parameter is needed, but the
+# LPE_GPS_DELAY value below keeps the estimator from fusing stale data.
+#param set LPE_GPS_DELAY 0.29   # default 0.29 s -- leave at default
+
+# Position accuracy thresholds for arming.
+#
+# WHY THESE MATTER:
+#   COM_ARM_WO_GPS=0 does NOT just check "GPS has a fix". It checks whether
+#   the LPE estimator has converged AND whether the GPS horizontal accuracy
+#   (EPH) reported by the u-blox M8N is below COM_POS_FS_EPH.  With 5-6
+#   satellites the M8N can report EPH of 6-12 m, which silently blocks
+#   arming with the default 5.0 m threshold even when the fix looks good.
+#
+#   Additionally LPE needs 10-30 s after GPS lock to converge (set
+#   xy_valid=true). Arming is blocked until convergence completes.
+#
+# COM_POS_FS_EPH: horizontal position error threshold (metres).
+#   Default 5.0 m -- too tight for M8N with partial sky view.
+#   10.0 m is safe for outdoor flight and passes reliably with 5+ sats.
+#param set COM_POS_FS_EPH 10.0
+
+# COM_POS_FS_EPV: vertical position error threshold (metres).
+#   Default 10.0 m. Relaxed to 20.0 m because baro handles altitude
+#   on this stack (LPE baro fusion) and GPS vertical is less accurate.
+#param set COM_POS_FS_EPV 20.0
+
+# GPS lock notification
+# When the u-blox M8N acquires a 3D fix the PX4 events module (started
+# below) automatically:
+#   1. Switches the RGB LED from PURPLE (searching) to BLUE breathing (ready)
+#   2. Plays TUNE_ID_NOTIFY_NEUTRAL on tone_alarm -- two rising beeps.
+#      This tone is distinct from:
+#        Boot tone    : tune_control play -t 3  (ascending triple beep)
+#        Arming tone  : TUNE_ID_ARMING          (two short chirps then hold)
+#        Error tone   : TUNE_ID_ERROR           (two descending buzzes)
+#      The GPS-lock tone is deliberately lighter (two soft rising notes)
+#      to give the pilot clear audio confirmation GPS is locked before arm.
+# NOTE: CBRK_BUZZER is already set to 0 (buzzer enabled) below.
 
 # Stub MC position control params (modules disabled, but libs reference them)
 param set-default MPC_MAN_Y_MAX 150
@@ -192,23 +252,74 @@ param set MC_ROLLRATE_MAX 220.0
 param set MC_PITCHRATE_MAX 220.0
 param set MC_YAWRATE_MAX 200.0
 
+# Airmode -- DISABLED.  With airmode off the allocator does not boost
+# total thrust to preserve attitude authority at zero stick.  Keep this
+# disabled until the drone is flight-tested and fully tuned.
+# 0 = disabled, 1 = roll/pitch, 2 = roll/pitch/yaw
+param set MC_AIRMODE 0
+
 # ---------------------------------------------------------
 # PWM Output Configuration
 # ---------------------------------------------------------
-# Timer 0 = PWM Slice 2 (GPIO 20, 21)
-# Timer 1 = PWM Slice 3 (GPIO 22, 23)
-# 50Hz for standard ESC calibration/testing
+# RP2040 PWM slice mapping (from timer_config.cpp):
+#   Timer 0 / Slice 2  ->  ESC0 (GPIO 20, Ch A) + ESC1 (GPIO 21, Ch B)
+#   Timer 1 / Slice 3  ->  ESC2 (GPIO 22, Ch A) + ESC3 (GPIO 23, Ch B)
+#
+# FREQUENCY -- 50 Hz (20 ms period) for standard ESC protocol.
+# Both timers MUST be set to the same frequency.  A mismatch here means
+# the two slices generate periods of different lengths, making throttle
+# commands non-equivalent between slice 2 and slice 3 channels.
 param set PWM_MAIN_TIM0 50
 param set PWM_MAIN_TIM1 50
 
 # Motor function assignments (Quad X layout)
-param set PWM_MAIN_FUNC1 101
-param set PWM_MAIN_FUNC2 102
-param set PWM_MAIN_FUNC3 103
-param set PWM_MAIN_FUNC4 104
+# PWM_MAIN_FUNC1-4 must not be duplicated or permuted here.
+param set PWM_MAIN_FUNC1 101  # Motor 1 -- front-right (CW)
+param set PWM_MAIN_FUNC2 102  # Motor 2 -- rear-left   (CW)
+param set PWM_MAIN_FUNC3 103  # Motor 3 -- front-left  (CCW)
+param set PWM_MAIN_FUNC4 104  # Motor 4 -- rear-right  (CCW)
 
-# PWM pulse width range for ESCs (standard PWM protocol)
-# Disarmed = 1000us (ESC off), Min = 1100us, Max = 1900us
+# =============================================================================
+# MOTOR SPIN DIRECTION OVERRIDES (Quad X)
+# =============================================================================
+# The default 4001_quad_x airframe assumes:
+#   Motor 0 (FR) = CCW (+KM),  Motor 1 (RL) = CCW (+KM)
+#   Motor 2 (FL) = CW  (-KM),  Motor 3 (RR) = CW  (-KM)
+#
+# Our physical wiring has ALL four motors spinning OPPOSITE to those
+# defaults:
+#   Motor 0 (FR) = CW,   Motor 1 (RL) = CW
+#   Motor 2 (FL) = CCW,  Motor 3 (RR) = CCW
+#
+# CA_ROTOR*_KM encodes both the yaw moment coefficient AND the spin
+# direction via its sign:  +KM = CCW,  -KM = CW.
+# If the signs are wrong the yaw controller fights itself: it commands
+# a correction, the reversed torque makes the error worse, the rate-I
+# term winds up, and motors split asymmetrically (two spin hard, two
+# stay at minimum).  This also corrupts roll/pitch corrections because
+# the allocator's effectiveness matrix no longer matches reality.
+#
+# Override KM signs to match the ACTUAL physical spin directions.
+# Position mapping (PX/PY) from 4001_quad_x is correct -- only KM is
+# flipped.
+param set CA_ROTOR0_KM -0.05   # Motor 1  FR -- physical CW
+param set CA_ROTOR1_KM -0.05   # Motor 2  RL -- physical CW
+param set CA_ROTOR2_KM  0.05   # Motor 3  FL -- physical CCW
+param set CA_ROTOR3_KM  0.05   # Motor 4  RR -- physical CCW
+
+# PWM pulse width range -- all four ESC outputs MUST use identical values.
+# Any difference between channels causes one motor to spin up earlier or
+# later than the others at the same throttle command.
+#
+# ESC CALIBRATION NOTE: These values define what the *firmware* sends.
+# Each physical ESC must also be calibrated to the same 1000--2000 uss end
+# points.  If one ESC has been calibrated to a different range the motor
+# will activate at a different throttle position even if the firmware
+# params are identical.  After any firmware change re-run ESC calibration.
+#
+#   Disarmed  1000 uss -- ESC sees "off" signal (no motor spin)
+#   Min       1100 uss -- lowest throttle that spins the motor post-arming
+#   Max       1900 uss -- full throttle (leaves 100 uss margin from protocol max)
 param set PWM_MAIN_DIS1 1000
 param set PWM_MAIN_DIS2 1000
 param set PWM_MAIN_DIS3 1000
@@ -221,6 +332,45 @@ param set PWM_MAIN_MAX1 1900
 param set PWM_MAIN_MAX2 1900
 param set PWM_MAIN_MAX3 1900
 param set PWM_MAIN_MAX4 1900
+
+# =============================================================================
+# *** MANDATORY QGC CALIBRATIONS -- DO THESE BEFORE FLIGHT ***
+# =============================================================================
+# The following calibrations MUST be performed in QGroundControl after
+# flashing this firmware.  Without them the attitude controller will
+# see phantom tilt angles and the mixer will command asymmetric motor
+# outputs (e.g. rear motors spin at zero throttle, front motors do not
+# respond until mid-stick).
+#
+#   1. RC CALIBRATION  (Settings -> Radio -> Calibrate)
+#      Move every stick to its full extents so QGC learns the actual
+#      min/max/trim for each channel.  If this is skipped the firmware
+#      uses compiled defaults (1000/1500/2000) which may not match the
+#      FlySky FS-iA10B output.  Even a 20 us trim error on the pitch
+#      channel creates a constant pitch command that makes two motors
+#      spin while the other two stay idle.
+#
+#   2. ACCELEROMETER CALIBRATION  (Settings -> Sensors -> Accelerometer)
+#      Place the board on each of the six faces as prompted.  Without
+#      this the accelerometer bias can be several mg, translating to a
+#      multi-degree attitude offset at rest.
+#
+#   3. LEVEL HORIZON  (Settings -> Sensors -> Level Horizon)
+#      With the board mounted on the frame and the frame sitting level,
+#      press Calibrate.  This zeros out any residual pitch/roll offset
+#      so the controller treats "board at rest" as true level.
+#
+#   4. COMPASS CALIBRATION  (Settings -> Sensors -> Compass)
+#      Rotate the drone through all orientations.  Needed for accurate
+#      heading in Position and RTL modes.
+#
+#   5. ESC CALIBRATION  (Settings -> Power -> ESC Calibration, or manual
+#      procedure: throttle to max -> power on ESCs -> wait for beeps ->
+#      throttle to min -> wait for confirmation beeps)
+#      All four ESCs must agree on the 1000-2000 us endpoint mapping.
+#      If one ESC has a different range it will spin earlier or later
+#      than the others at the same throttle command.
+# =============================================================================
 
 # ---------------------------------------------------------
 # Startup Sequence
@@ -240,7 +390,25 @@ led_control on -c white
 # PWM motor output
 pwm_out start
 
-# Buzzer task for events and explicit tune_control tones
+# Buzzer task for events and explicit tune_control tones.
+# The tone_alarm driver owns GPIO25 (Huaneng QMB-09B-03, 2700+/-300 Hz).
+# Tones triggered automatically by the Commander / events module:
+#
+#   Event              Tune ID   Pattern (approximate)
+#   -----------------  --------  ------------------------------------------
+#   Boot complete      3         Three short ascending beeps (power-on ready)
+#   GPS lock acquired  7         Two rising tones, held briefly  <- UNIQUE
+#                                  (TUNE_ID_NOTIFY_NEUTRAL -- distinct from
+#                                   boot / arm / error tones)
+#   Armed              5         Double-chirp then steady tone
+#   Disarmed           6         Descending double-chirp
+#   Battery warning    8         Rapid repeating buzz
+#   RC loss            2         Two descending tones
+#   Error / failsafe   2         Two rapid descending buzzes
+#
+# GPS lock tone fires when the Commander first marks GPS as healthy
+# (fix_type >= 3, num_sat >= threshold) and COM_ARM_WO_GPS=0 means the
+# system will NOT reach "Ready to Arm" until that tone has played.
 tone_alarm start
 # Ensure attitude estimator starts
 attitude_estimator_q start
@@ -264,12 +432,18 @@ tune_control play -t 3
 # LED STATUS BEHAVIOR (controlled by events module)
 # =============================================================================
 # The events module automatically controls LED colors based on vehicle state:
-# - BLUE breathing: Disarmed, ready
-# - GREEN solid: Armed, flying
-# - YELLOW blinking: Low battery warning  
-# - RED blinking: Error/failsafe condition
-# - PURPLE: GPS acquiring/no fix
-# - WHITE: Calibration mode
+# - BLUE breathing:   Disarmed, all checks green, ready to arm
+# - GREEN solid:      Armed, flying
+# - YELLOW blinking:  Low battery warning
+# - RED blinking:     Error/failsafe condition
+# - PURPLE breathing: GPS acquiring / no fix -> arming BLOCKED (COM_ARM_WO_GPS=0)
+# - WHITE:            Calibration mode / initializing
+#
+# Pre-arm sequence the pilot should observe:
+#   1. WHITE  -- board booting, sensors initializing
+#   2. PURPLE -- GPS searching (cannot arm yet, buzzer silent on this state)
+#   3. Two rising beeps + LED transitions to BLUE -- GPS locked, arm permitted
+#   4. Arm via SWA (Ch5): double-chirp buzzer + LED turns GREEN
 
 # =============================================================================
 # NSH INTERACTIVE CONSOLE ON UART0

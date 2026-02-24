@@ -54,15 +54,30 @@
 
 /* Clocking *************************************************************************/
 
-/* On-board crystal frequency is 24MHz (HSE) */
+/* On-board crystal frequency is 12MHz (HSE).
+ * The STM32F103 PLL multiplies this by 2 to produce a 24MHz SYSCLK.
+ * This keeps all peripheral clocks identical to the original 24MHz direct-HSE
+ * configuration, so UART baud rates, PWM timers and all drivers are unchanged.
+ *
+ * Alternative: change STM32_CFGR_PLLMUL to RCC_CFGR_PLLMUL_CLKx6 and adjust
+ * APB prescalers to run the core at 72MHz (STM32F103 maximum). See comments
+ * in docs/RP2350B_STM32F103_IO_SETUP.md for the 72MHz config.
+ */
 
-#define STM32_BOARD_XTAL        24000000ul
+#define STM32_BOARD_XTAL        12000000ul
 
-/* Use the HSE output as the system clock */
+/* PLL: HSE (12MHz) × 2 = 24MHz SYSCLK */
 
-#define STM32_SYSCLK_SW         RCC_CFGR_SW_HSE
-#define STM32_SYSCLK_SWS        RCC_CFGR_SWS_HSE
-#define STM32_SYSCLK_FREQUENCY  STM32_BOARD_XTAL
+#define STM32_CFGR_PLLSRC       RCC_CFGR_PLLSRC        /* HSE as PLL input */
+#define STM32_CFGR_PLLXTPRE     0                       /* HSE not pre-divided */
+#define STM32_CFGR_PLLMUL       RCC_CFGR_PLLMUL_CLKx2  /* × 2 */
+#define STM32_PLL_FREQUENCY     (2 * STM32_BOARD_XTAL)  /* 24MHz */
+
+/* Use PLL output as the system clock */
+
+#define STM32_SYSCLK_SW         RCC_CFGR_SW_PLL
+#define STM32_SYSCLK_SWS        RCC_CFGR_SWS_PLL
+#define STM32_SYSCLK_FREQUENCY  STM32_PLL_FREQUENCY     /* 24MHz */
 
 /* AHB clock (HCLK) is SYSCLK (24MHz) */
 

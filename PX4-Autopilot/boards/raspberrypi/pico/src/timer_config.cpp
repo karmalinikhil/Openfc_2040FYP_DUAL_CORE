@@ -37,6 +37,17 @@
  // Slice 2 handles GPIO 20/21 (ESC 0, 1)
  // Slice 3 handles GPIO 22/23 (ESC 2, 3)
  // Note: Buzzer on GPIO25 is handled separately via tone_alarm driver, not here
+ //
+ // MOTOR SYNC NOTE:
+ // Slices 2 and 3 are initialised by the NuttX io_timer layer individually.
+ // This can introduce a phase offset of up to one PWM period between the
+ // two slices at startup.  In practice this is a fixed offset (not a
+ // drifting one) and does not affect steady-state pulse WIDTH accuracy.
+ // Throttle inconsistency between channels is therefore almost always an
+ // ESC hardware calibration issue rather than a firmware timing issue.
+ // Verify with: pwm_out test -p 1100  (all channels should beep together)
+ // If motors activate at different throttle levels, re-calibrate ESCs to
+ // the range defined by PWM_MAIN_DIS/MIN/MAX in rc.board_defaults.
  
  constexpr io_timers_t io_timers[MAX_IO_TIMERS] = {
      initIOTimer(Timer::Timer2), // For ESC 0 & 1

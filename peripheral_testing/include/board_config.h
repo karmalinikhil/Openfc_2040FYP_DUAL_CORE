@@ -73,8 +73,12 @@
 #define TELEM_BAUD      57600
 
 // PWM Configuration
-#define PWM_FREQ_HZ     400       // Standard ESC PWM frequency
-#define PWM_MIN_US      1000      // Minimum pulse width
-#define PWM_MAX_US      2000      // Maximum pulse width
+// 50 Hz is required for ESC calibration (power-on beep sequence).
+// ESCs do not enter calibration mode at 400 Hz -- they stay silent.
+// The PX4 flight firmware also uses 50 Hz (PWM_MAIN_TIM0/1 = 50).
+#define PWM_FREQ_HZ     50        // Standard ESC PWM frequency (50 Hz = 20 ms period)
+#define PWM_MIN_US      1000      // Minimum pulse width  -- ESC disarmed / calibration low point
+#define PWM_MID_US      1500      // Midpoint pulse width -- ~hover throttle estimate
+#define PWM_MAX_US      2000      // Maximum pulse width  -- full throttle / calibration high point
 
 #endif // BOARD_CONFIG_H
