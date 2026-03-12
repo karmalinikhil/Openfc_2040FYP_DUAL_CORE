@@ -352,6 +352,15 @@ rp2040_boardinitialize(void)
     rp2040_gpio_set_pulls(CONFIG_RP2040_I2C1_GPIO + 1, true, false);
 #endif
 
+    /* ------------------------------------------------------------------- */
+    /* Telemetry Radio CTS pin (GPIO2) -- pull HIGH on boot                */
+    /* The 433 MHz radio module requires CTS HIGH to enable data flow.     */
+    /* No hardware flow control is used; this is a static assert only.     */
+    /* ------------------------------------------------------------------- */
+    rp2040_gpio_init(2);
+    rp2040_gpio_setdir(2, true);    /* Output */
+    rp2040_gpio_put(2, true);       /* HIGH = radio CTS asserted */
+
     /* Configure SPI GPIOs (Calls the function in board_config.h) */
     rp2040_spiinitialize();
 } 

@@ -123,7 +123,11 @@ void LSM6DS3::RunImpl()
 		break;
 
 	case STATE::WAIT_FOR_RESET:
-		if ((RegisterRead(Register::WHO_AM_I) == WHO_AM_I_ID)) {
+		// Per ST PID driver (lsm6ds3_reg.c): wait for CTRL3_C.SW_RESET
+		// to self-clear, which confirms the reset sequence has completed.
+		// Also verify WHO_AM_I to confirm SPI comms are alive.
+		if ((RegisterRead(Register::WHO_AM_I) == WHO_AM_I_ID) &&
+		    ((RegisterRead(Register::CTRL3_C) & CTRL3_C_BIT::SW_RESET) == 0)) {
 
 			// Disable I2C interface immediately to prevent mode switching
 			RegisterWrite(Register::CTRL4_C, CTRL4_C_BIT::I2C_disable);
@@ -152,10 +156,17 @@ void LSM6DS3::RunImpl()
 			// if configure succeeded then start reading
 			_state = STATE::FIFO_READ;
 
-			// RP2040 performance constraint:
-			// Keep IMU driver polling <= 50 Hz to avoid starving NSH / system work queues.
-			// 50 Hz => 20ms interval.
-			ScheduleOnInterval(22000, 22000);  // 22ms = ~45.45 Hz (slightly below 50 Hz)
+			// Poll at 25 ms (40 Hz) -- the empirically determined safe maximum
+			// for this RP2040/NuttX work queue.
+			//
+			// Background: Each RunImpl() triggers a callback chain:
+			//   VehicleAngularVelocity (soft-FP LP filter, ~111 µs measured)
+			//   mc_rate_control (PID, ~200 µs soft-FP on Cortex-M0+)
+			// At 50 Hz+ the NuttX HPWORK queue starves NSH (confirmed empirically,
+			// documented in docs/LSM6DS3_SPI_FIX_REPORT.md).
+			// IMU ODR remains at 833 Hz -- BDU=1 guarantees fresh data on every
+			// 40 Hz poll because output registers update every ~1.2 ms.
+			ScheduleOnInterval(25000, 25000);  // 25 ms = 40 Hz
 
 		} else {
 			// CONFIGURE not complete
@@ -173,8 +184,18 @@ void LSM6DS3::RunImpl()
 		break;
 
 	case STATE::FIFO_READ: {
-			// Simple direct register read - no FIFO complexity
-			// This is the most reliable approach for RP2040
+			// Direct output-register read (FIFO kept in Bypass mode).
+			//
+			// STATUS_REG (0x1E) is checked for new-data-ready flags before
+			// reading output registers.  With BDU=1 the sensor holds registers
+			// stable until fully read, so a burst from OUTX_L_G (0x22) through
+			// OUTZ_H_XL (0x2D) safely reads all 12 bytes in one SPI transaction.
+			const uint8_t status = RegisterRead(Register::STATUS_REG);
+
+			if (!(status & (STATUS_REG_BIT::XLDA | STATUS_REG_BIT::GDA))) {
+				// No new data yet -- skip this poll cycle.
+				break;
+			}
 
 			// Read gyro and accel data directly from output registers
 			struct SensorData {
@@ -331,93 +352,18 @@ void LSM6DS3::RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t cle
 	}
 }
 
+uint16_t LSM6DS3::FIFOReadCount()
+{
+	return 0;
+}
+
 bool LSM6DS3::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 {
-	sensor_gyro_fifo_s gyro{};
-	gyro.timestamp_sample = timestamp_sample;
-	gyro.samples = 0;
-	gyro.dt = FIFO_SAMPLE_DT;
-
-	sensor_accel_fifo_s accel{};
-	accel.timestamp_sample = timestamp_sample;
-	accel.samples = 0;
-	accel.dt = FIFO_SAMPLE_DT;
-
-	// LSM6DS3 FIFO data is read sequentially from FIFO_DATA_OUT_L/H
-	// Data pattern depends on decimation settings
-	// With both gyro and accel at no decimation: G_X, G_Y, G_Z, XL_X, XL_Y, XL_Z per sample
-
-    // Safety: Limit the number of samples to read to prevent CPU starvation (NSH freeze)
-    // If we have too many samples (e.g. FIFO full), drop them and reset.
-    if (samples > 20) {
-        perf_count(_fifo_overflow_perf);
-        FIFOReset();
-        return false;
-    }
-
-	for (int i = 0; i < samples; i++) {
-		// Read data from FIFO_DATA_OUT_L/H (0x3E/0x3F)
-		// Pattern: G_X, G_Y, G_Z, XL_X, XL_Y, XL_Z (12 bytes)
-		struct FIFOTransferBuffer {
-			uint8_t cmd{static_cast<uint8_t>(Register::FIFO_DATA_OUT_L) | DIR_READ};
-			uint8_t data[12];
-		} buffer{};
-
-		if (transfer((uint8_t *)&buffer, (uint8_t *)&buffer, sizeof(buffer)) == PX4_OK) {
-			const int16_t gyro_x = combine(buffer.data[1], buffer.data[0]);
-			const int16_t gyro_y = combine(buffer.data[3], buffer.data[2]);
-			const int16_t gyro_z = combine(buffer.data[5], buffer.data[4]);
-
-			const int16_t accel_x = combine(buffer.data[7], buffer.data[6]);
-			const int16_t accel_y = combine(buffer.data[9], buffer.data[8]);
-			const int16_t accel_z = combine(buffer.data[11], buffer.data[10]);
-
-			// sensor's frame is +x forward, +y left, +z up
-			//  flip y & z to publish right handed with z down (x forward, y right, z down)
-			gyro.x[gyro.samples] = gyro_x;
-			gyro.y[gyro.samples] = gyro_y;
-			gyro.z[gyro.samples] = (gyro_z == INT16_MIN) ? INT16_MAX : -gyro_z;
-			gyro.samples++;
-
-			accel.x[accel.samples] = accel_x;
-			accel.y[accel.samples] = accel_y;
-			accel.z[accel.samples] = (accel_z == INT16_MIN) ? INT16_MAX : -accel_z;
-			accel.samples++;
-
-		} else {
-			perf_count(_bad_transfer_perf);
-		}
-	}
-
-	if (gyro.samples > 0) {
-		_px4_gyro.set_error_count(perf_event_count(_bad_register_perf) + perf_event_count(_bad_transfer_perf) +
-					  perf_event_count(_fifo_empty_perf) + perf_event_count(_fifo_overflow_perf));
-		_px4_gyro.updateFIFO(gyro);
-	}
-
-	if (accel.samples > 0) {
-		_px4_accel.set_error_count(perf_event_count(_bad_register_perf) + perf_event_count(_bad_transfer_perf) +
-					   perf_event_count(_fifo_empty_perf) + perf_event_count(_fifo_overflow_perf));
-		_px4_accel.updateFIFO(accel);
-	}
-
-	return (accel.samples > 0) && (gyro.samples > 0);
+	return false;
 }
 
 void LSM6DS3::FIFOReset()
 {
-	perf_count(_fifo_reset_perf);
-
-	// To reset FIFO, set Bypass mode (FIFO_MODE = 000)
-	RegisterWrite(Register::FIFO_CTRL5, 0);
-
-	// Then re-enable continuous mode
-	for (auto &r : _register_cfg) {
-		if ((r.reg == Register::CTRL3_C) || (r.reg == Register::CTRL4_C) ||
-		    (r.reg == Register::FIFO_CTRL3) || (r.reg == Register::FIFO_CTRL5)) {
-			RegisterSetAndClearBits(r.reg, r.set_bits, r.clear_bits);
-		}
-	}
 }
 
 void LSM6DS3::UpdateTemperature()

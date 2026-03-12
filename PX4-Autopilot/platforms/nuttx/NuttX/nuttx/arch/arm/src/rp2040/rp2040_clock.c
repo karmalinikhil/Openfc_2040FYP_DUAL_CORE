@@ -198,6 +198,29 @@ void clocks_init(void)
 
   rp2040_xosc_init();
 
+  /* Raise VREG voltage to 1.20V for stable operation at 240 MHz.
+   * Default 1.10V is only rated for <= 133 MHz.
+   * VREG register: bits [7:4] = VSEL (0b0110 = 1.10V default, 0b1001 = 1.20V)
+   *                bit 0 = EN (regulator enabled)
+   * RP2040 datasheet section 2.10.3
+   */
+
+#if BOARD_SYS_FREQ > (133 * MHZ)
+  {
+    /* VREG VSEL=0b1011 (1.25V), EN=1 */
+
+    putreg32((0xb << 4) | 1, RP2040_VREG_AND_CHIP_RESET_BASE + 0x00);
+
+    /* Wait for VREG output to stabilize (~100us per datasheet) */
+
+    volatile int vreg_delay;
+    for (vreg_delay = 0; vreg_delay < 1000; vreg_delay++)
+      {
+        __asm__ volatile ("nop");
+      }
+  }
+#endif
+
   /* Before we touch PLLs, switch sys and ref cleanly away from their
    * aux sources.
    */
@@ -225,8 +248,8 @@ void clocks_init(void)
          (RP2040_RESETS_RESET_PLL_SYS | RP2040_RESETS_RESET_PLL_USB))
     ;
 
-  /* PLL SYS: 12 / 1 = 12MHz * 100 = 1200MHz / 3 / 2 = 200MHz */
-  rp2040_pll_init(RP2040_PLL_SYS_BASE, 1, 1200 * MHZ, 3, 2);
+  /* PLL SYS: 12 / 1 = 12MHz * 120 = 1440MHz / 3 / 2 = 240MHz */
+  rp2040_pll_init(RP2040_PLL_SYS_BASE, 1, 1440 * MHZ, 3, 2);
   rp2040_pll_init(RP2040_PLL_USB_BASE, 1, 480 * MHZ, 5, 2);
 
   /* Configure clocks */

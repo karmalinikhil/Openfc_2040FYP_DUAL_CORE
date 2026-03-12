@@ -1,40 +1,75 @@
 #!/bin/sh
 #
-# OpenFC2040 board specific sensors init
+# OpenFC2040 board-specific sensor and hardware driver init
+#
+# This runs BEFORE estimators and commander (called from rcS).
+# Startup order enforced by rcS:
+#   1. rc.board_defaults  -> parameters only
+#   2. rc.board_sensors   -> THIS FILE (HW drivers + sensors)
+#   3. rc.sensors         -> generic sensor framework
+#   4. estimators         -> attitude_estimator_q + LPE (auto, from params)
+#   5. commander          -> pre-flight checks, arming logic
+#   6. rc.vehicle_setup   -> mc_att_control, mc_rate_control, etc.
+#   7. rc.board_mavlink   -> MAVLink on USB CDC
+#   8. rc.logging         -> logger (auto, from SDLOG_MODE param)
+#
+# All sensor data is flowing BEFORE estimators start calculating convergence.
 #------------------------------------------------------------------------------
 
 # =============================================================================
-# INTERNAL SENSORS (Required - always present on board)
+# BOARD-SPECIFIC HARDWARE DRIVERS
 # =============================================================================
 
-# ADC for Battery Voltage (GPIO27) and Current (GPIO28)
+# RGB LED driver (GPIO13/14/15, active-low)
+# Must start early so events module can control LED state
+rgbled_gpio start
+
+# Events module -- drives LED colours + buzzer tones based on vehicle state
+# (arming, GPS lock, errors, battery warnings)
+# rcS starts send_event; this is the board-level events handler
+events start
+
+# Set initial LED to white (booting/initialising)
+led_control on -c white
+
+# =============================================================================
+# INTERNAL SENSORS (always present on PCB)
+# =============================================================================
+
+# ADC for battery voltage (GPIO27) and current (GPIO28)
 board_adc start
 
-# IMU: LSM6DS3TR-C on SPI1
+# IMU: LSM6DS3TR-C on SPI1 (CS=GPIO9)
+# Must be running before attitude_estimator_q starts
 lsm6ds3 start -s -R 0
 
-# Barometer: DPS310 on SPI1
+# Barometer: DPS310 on SPI1 (CS=GPIO12)
+# Must be running before LPE starts (baro fusion)
 dps310 start -s
 
 # =============================================================================
-# EXTERNAL SENSORS (Optional - connected via JST-GH connector)
+# EXTERNAL SENSORS (JST-GH connector)
 # =============================================================================
 
-# GPS on UART1 (/dev/ttyS1)
+# GPS: u-blox M7N on UART1 (/dev/ttyS1)
 gps status > /dev/null || gps start -d /dev/ttyS1 -p ubx
 
-# External Magnetometer on I2C1 (GPIO6/GPIO7)
-# Auto-detect: Try all common GPS module magnetometers
-# Only one will succeed based on what's actually connected
-# -X = external, -b 1 = I2C bus 1, -R 0 = no rotation, -q = quiet (no error if not found)
-qmc5883l -X -b 1 -R 0 -q start   # I2C addr 0x0D (most common in BN-880 modules)
+# External magnetometer on I2C1 (GPIO6/GPIO7)
+# Wait for the I2C bus to fully settle before probing the compass.
+# The RP2040 I2C peripheral can lock up if probed too early after power-on,
+# causing the first transaction to succeed and all subsequent ones to fail.
+
+# 700 ms gives the GPS module's compass (HMC5883 at 0x1E) time to boot and
+# the I2C bus time to settle completely.
+usleep 700000
+# Auto-detect: only one will succeed based on what's connected
+# -X = external, -b 1 = I2C bus 1, -R 0 = no rotation, -q = quiet
+qmc5883l -X -b 1 -R 0 -q start   # I2C addr 0x0D (BN-880 modules)
 hmc5883 -X -b 1 -R 0 -q start    # I2C addr 0x1E (Honeywell/clone)
-ist8310 -X -b 1 -R 0 -q start    # I2C addr 0x0E (common in uBlox GPS modules)
+ist8310 -X -b 1 -R 0 -q start    # I2C addr 0x0E (uBlox GPS modules)
 
 # =============================================================================
-# ATTITUDE ESTIMATOR
+# UART0 is used for MAVLink telemetry to 433 MHz radio (started in
+# rc.board_mavlink).  Do NOT start nshterm on /dev/ttyS0.
+# Use USB CDC (/dev/ttyACM0) for NSH debugging instead.
 # =============================================================================
-# Q attitude estimator auto-starts based on SYS_MC_EST_GROUP=2 parameter
-# (set in rc.board_defaults)
-# Do NOT manually start it here - let the commander module start it after
-# all sensors are initialized and ready   

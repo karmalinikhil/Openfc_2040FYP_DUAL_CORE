@@ -148,6 +148,15 @@ Huaneng QMB-09B-03 on GPIO 25
 #define BOARD_HAS_PWM    DIRECT_PWM_OUTPUT_CHANNELS
 
 
+/* ---------------------------------------------------------
+ * Telemetry Radio (433 MHz) CTS pin
+ * ---------------------------------------------------------
+ * The radio module's CTS is connected to GPIO2.
+ * Driven HIGH at boot to enable TX from the radio.
+ * No hardware flow control -- only TX/RX used on UART0.
+ */
+#define GPIO_TELEM_RADIO_CTS  2
+
 /* System Config */
 #define BOARD_DMA_ALLOC_POOL_SIZE 2048
 #define BOARD_ENABLE_CONSOLE_BUFFER

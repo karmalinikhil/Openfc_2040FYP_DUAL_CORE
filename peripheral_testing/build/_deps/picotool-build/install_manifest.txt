@@ -1,7 +1,0 @@
-/home/rishi-patil/OpenFC2040_FYP/peripheral_testing/build/_deps/picotool/picotool
-/home/rishi-patil/OpenFC2040_FYP/peripheral_testing/build/_deps/picotool/picotoolTargets.cmake
-/home/rishi-patil/OpenFC2040_FYP/peripheral_testing/build/_deps/picotool/picotoolTargets-release.cmake
-/home/rishi-patil/OpenFC2040_FYP/peripheral_testing/build/_deps/picotool/picotoolConfig.cmake
-/home/rishi-patil/OpenFC2040_FYP/peripheral_testing/build/_deps/picotool/picotoolConfigVersion.cmake
-/home/rishi-patil/OpenFC2040_FYP/peripheral_testing/build/_deps/picotool/enc_bootloader.elf
-/home/rishi-patil/OpenFC2040_FYP/peripheral_testing/build/_deps/picotool/enc_bootloader_mbedtls.elf

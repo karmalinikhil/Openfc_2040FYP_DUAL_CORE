@@ -3,7 +3,18 @@
 # board specific MAVLink startup script.
 #------------------------------------------------------------------------------
 
-# MAVLink on USB CDC ACM only
-# Mode: minimal - only essential streams (attitude, position, GPS, battery, sys_status)
-# Lower CPU impact than 'normal' mode (fewer streams, lower rates)
+# =============================================================================
+# INSTANCE 0: Telemetry radio on UART0 (/dev/ttyS0)
+# =============================================================================
+# 433 MHz radio connected to UART0 (TX=GPIO0, RX=GPIO1).
+# CTS (GPIO2) is pulled HIGH at boot in init.c -- no HW flow control.
+# 57600 baud matches common 433 MHz radio default (SiK firmware).
+# Mode: minimal -- only essential streams to keep bandwidth within
+# the radio's air-data rate (~4800 bytes/s max for 57600 baud link).
+mavlink start -d /dev/ttyS0 -b 57600 -m minimal -r 1200
+
+# =============================================================================
+# INSTANCE 1: USB CDC for direct QGC / NSH fallback
+# =============================================================================
+# Higher rate allowed on USB; normal mode for full telemetry when plugged in.
 mavlink start -d /dev/ttyACM0 -b 115200 -m normal -r 6000

@@ -48,11 +48,11 @@
  #define MHZ                     1000000
  
  #define BOARD_XOSC_FREQ         (12 * MHZ)
-#define BOARD_PLL_SYS_FREQ      (200 * MHZ)
+#define BOARD_PLL_SYS_FREQ      (240 * MHZ)
  #define BOARD_PLL_USB_FREQ      (48 * MHZ)
  
  #define BOARD_REF_FREQ          (12 * MHZ)
-#define BOARD_SYS_FREQ          (200 * MHZ)
+#define BOARD_SYS_FREQ          (240 * MHZ)
  #define BOARD_PERI_FREQ         (48 * MHZ)    /* CLK_PERI sourced from PLL_USB for stable UART/SPI */
  #define BOARD_USB_FREQ          (48 * MHZ)
  #define BOARD_ADC_FREQ          (48 * MHZ)

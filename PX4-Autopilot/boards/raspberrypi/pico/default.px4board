@@ -9,10 +9,12 @@ CONFIG_NUM_MISSION_ITMES_SUPPORTED=10
 # ---------------------------------------------------------
 # Serial Port Mappings (RP2040 has 2 UARTs)
 # ---------------------------------------------------------
-# UART0 (GPIO 0/1): /dev/ttyS0 - NSH console
+# UART0 (GPIO 0/1): /dev/ttyS0 - MAVLink telemetry (433 MHz radio)
+#   CTS pin (GPIO2) pulled HIGH at boot -- no HW flow control
 # UART1 (GPIO 4/5): /dev/ttyS1 - GPS
-# USB CDC: /dev/ttyACM0 - MAVLink to QGC
+# USB CDC: /dev/ttyACM0 - MAVLink to QGC (direct USB)
 CONFIG_BOARD_SERIAL_GPS1="/dev/ttyS1"
+CONFIG_BOARD_SERIAL_TEL1="/dev/ttyS0"
 
 # ---------------------------------------------------------
 # Drivers (Minimal set for motor testing)
@@ -51,7 +53,7 @@ CONFIG_MODULES_EVENTS=y
 CONFIG_MODULES_LAND_DETECTOR=y
 CONFIG_MODULES_LOAD_MON=y
 CONFIG_MODULES_LOCAL_POSITION_ESTIMATOR=y
-# CONFIG_MODULES_LOGGER is not set
+CONFIG_MODULES_LOGGER=y
 # CONFIG_MODULES_MAG_BIAS_ESTIMATOR is not set
 CONFIG_MODULES_MANUAL_CONTROL=y
 CONFIG_MODULES_MAVLINK=y
