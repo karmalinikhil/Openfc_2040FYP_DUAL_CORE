@@ -107,11 +107,78 @@ static void up_send(struct uart_dev_s *dev, int ch);
 static void up_txint(struct uart_dev_s *dev, bool enable);
 static bool up_txready(struct uart_dev_s *dev);
 static bool up_txempty(struct uart_dev_s *dev);
+static inline uint32_t up_serialin(struct up_dev_s *priv, int offset);
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+bool rp2040_uart_tryreceive(FAR struct uart_dev_s *dev, FAR char *ch);
+bool rp2040_uart_diag_repair(FAR struct uart_dev_s *dev, char src);
+
+static inline void rp2040_diag_hex32(uintptr_t v)
+{
+  int i;
+
+  for (i = 28; i >= 0; i -= 4)
+    {
+      uint32_t nibble = (v >> i) & 0x0f;
+      arm_lowputc((char)(nibble < 10 ? ('0' + nibble) : ('A' + nibble - 10)));
+    }
+}
+
+static inline void rp2040_diag_dump_words(FAR const void *ptr, int nwords)
+{
+  FAR const uint32_t *p = (FAR const uint32_t *)ptr;
+  int i;
+
+  for (i = 0; i < nwords; i++)
+    {
+      if (i > 0)
+        {
+          arm_lowputc('.');
+        }
+
+      rp2040_diag_hex32((uintptr_t)p[i]);
+    }
+}
+#endif
+static const struct uart_ops_s g_uart_ops;
 
 /****************************************************************************
  * Private Data
  ****************************************************************************/
 
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+bool rp2040_uart_tryreceive(FAR struct uart_dev_s *dev, FAR char *ch)
+{
+  FAR struct up_dev_s *priv;
+  uint32_t fr;
+  uint32_t dr;
+
+  if (dev == NULL || ch == NULL || dev->priv == NULL)
+    {
+      return false;
+    }
+
+  /* Reject non-RP2040 UART devices routed through generic serial.c. */
+
+  if (dev->ops != &g_uart_ops)
+    {
+      return false;
+    }
+
+  priv = (FAR struct up_dev_s *)dev->priv;
+  fr = up_serialin(priv, RP2040_UART_UARTFR_OFFSET);
+
+  if ((fr & RP2040_UART_UARTFR_RXFE) != 0)
+    {
+      return false;
+    }
+
+  dr = up_serialin(priv, RP2040_UART_UARTDR_OFFSET);
+  *ch = (char)(dr & 0xff);
+  return true;
+}
+#endif
 static const struct uart_ops_s g_uart_ops =
 {
   .setup         = up_setup,
@@ -133,18 +200,62 @@ static const struct uart_ops_s g_uart_ops =
 
 /* I/O buffers */
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+#define RP2040_UART_CANARY_PRE  0x13579bdfu
+#define RP2040_UART_CANARY_POST 0x2468ace0u
+
+struct rp2040_guarded_buf0_s
+{
+  uint32_t pre;
+  char data[CONFIG_UART0_RXBUFSIZE];
+  uint32_t post;
+};
+
+#ifdef CONFIG_RP2040_UART1
+struct rp2040_guarded_buf1_s
+{
+  uint32_t pre;
+  char data[CONFIG_UART1_RXBUFSIZE];
+  uint32_t post;
+};
+#endif
+#endif
+
 #ifdef CONFIG_RP2040_UART0
+#ifdef CONFIG_ARCH_CHIP_RP2040
+static struct rp2040_guarded_buf0_s g_uart0rxguard =
+{
+  .pre  = RP2040_UART_CANARY_PRE,
+  .post = RP2040_UART_CANARY_POST,
+};
+static uint32_t g_uart0port_pre = RP2040_UART_CANARY_PRE;
+static uint32_t g_uart0port_post = RP2040_UART_CANARY_POST;
+#else
 static char g_uart0rxbuffer[CONFIG_UART0_RXBUFSIZE];
+#endif
 static char g_uart0txbuffer[CONFIG_UART0_TXBUFSIZE];
 #endif
 #ifdef CONFIG_RP2040_UART1
+#ifdef CONFIG_ARCH_CHIP_RP2040
+static struct rp2040_guarded_buf1_s g_uart1rxguard =
+{
+  .pre  = RP2040_UART_CANARY_PRE,
+  .post = RP2040_UART_CANARY_POST,
+};
+static uint32_t g_uart1port_pre = RP2040_UART_CANARY_PRE;
+static uint32_t g_uart1port_post = RP2040_UART_CANARY_POST;
+#else
 static char g_uart1rxbuffer[CONFIG_UART1_RXBUFSIZE];
+#endif
 static char g_uart1txbuffer[CONFIG_UART1_TXBUFSIZE];
 #endif
 
 /* This describes the state of the RP2040 UART0 port. */
 
 #ifdef CONFIG_RP2040_UART0
+#ifdef CONFIG_ARCH_CHIP_RP2040
+static uint32_t g_uart0priv_pre = RP2040_UART_CANARY_PRE;
+#endif
 static struct up_dev_s g_uart0priv =
 {
   .uartbase  = RP2040_UART0_BASE,
@@ -162,13 +273,21 @@ static struct up_dev_s g_uart0priv =
   .oflow     = true,
 #endif
 };
+#ifdef CONFIG_ARCH_CHIP_RP2040
+static uint32_t g_uart0priv_post = RP2040_UART_CANARY_POST;
+static uint32_t g_uart0port_pre2 = RP2040_UART_CANARY_PRE;
+#endif
 
 static uart_dev_t g_uart0port =
 {
   .recv =
     {
       .size   = CONFIG_UART0_RXBUFSIZE,
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      .buffer = g_uart0rxguard.data,
+#else
       .buffer = g_uart0rxbuffer,
+#endif
     },
   .xmit =
     {
@@ -178,12 +297,18 @@ static uart_dev_t g_uart0port =
   .ops  = &g_uart_ops,
   .priv = &g_uart0priv,
 };
+#ifdef CONFIG_ARCH_CHIP_RP2040
+static uint32_t g_uart0port_post2 = RP2040_UART_CANARY_POST;
+#endif
 #  define TTYS0_DEV g_uart0port /* UART0=ttyS0 */
 #endif
 
 /* This describes the state of the RP2040 UART1 port. */
 
 #ifdef CONFIG_RP2040_UART1
+#ifdef CONFIG_ARCH_CHIP_RP2040
+static uint32_t g_uart1priv_pre = RP2040_UART_CANARY_PRE;
+#endif
 static struct up_dev_s g_uart1priv =
 {
   .uartbase  = RP2040_UART1_BASE,
@@ -201,13 +326,21 @@ static struct up_dev_s g_uart1priv =
   .oflow     = true,
 #endif
 };
+#ifdef CONFIG_ARCH_CHIP_RP2040
+static uint32_t g_uart1priv_post = RP2040_UART_CANARY_POST;
+static uint32_t g_uart1port_pre2 = RP2040_UART_CANARY_PRE;
+#endif
 
 static uart_dev_t g_uart1port =
 {
   .recv =
     {
       .size   = CONFIG_UART1_RXBUFSIZE,
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      .buffer = g_uart1rxguard.data,
+#else
       .buffer = g_uart1rxbuffer,
+#endif
     },
   .xmit =
     {
@@ -217,6 +350,9 @@ static uart_dev_t g_uart1port =
   .ops  = &g_uart_ops,
   .priv = &g_uart1priv,
 };
+#ifdef CONFIG_ARCH_CHIP_RP2040
+static uint32_t g_uart1port_post2 = RP2040_UART_CANARY_POST;
+#endif
 #  define TTYS1_DEV g_uart1port /* UART1=ttyS1 */
 #endif
 
@@ -229,6 +365,530 @@ static uart_dev_t g_uart1port =
 #    define CONSOLE_DEV     g_uart1port /* UART1=console */
 #  endif
 #endif /* HAVE_CONSOLE */
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+bool rp2040_uart_diag_repair(FAR struct uart_dev_s *dev, char src)
+{
+  bool ok = true;
+
+#ifdef CONFIG_RP2040_UART0
+  static uint16_t uart0_diag_bits;
+  bool repaired = false;
+
+  if (dev == &g_uart0port)
+    {
+      if (dev->recv.size == 0)
+        {
+          ok = false;
+          dev->recv.size = CONFIG_UART0_RXBUFSIZE;
+        }
+
+      if (dev->ops != &g_uart_ops)
+        {
+          uintptr_t bad = (uintptr_t)dev->ops;
+          ok = false;
+          repaired = true;
+          dev->ops = &g_uart_ops;
+          if ((uart0_diag_bits & (1u << 5)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('O');
+              arm_lowputc('[');
+              rp2040_diag_hex32(bad);
+              arm_lowputc(']');
+              uart0_diag_bits |= (1u << 5);
+            }
+        }
+
+      if (dev->priv != &g_uart0priv)
+        {
+          uintptr_t bad = (uintptr_t)dev->priv;
+          ok = false;
+          repaired = true;
+          dev->priv = &g_uart0priv;
+          if ((uart0_diag_bits & (1u << 6)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('V');
+              arm_lowputc('[');
+              rp2040_diag_hex32(bad);
+              arm_lowputc(']');
+              uart0_diag_bits |= (1u << 6);
+            }
+        }
+
+      if (g_uart0priv.uartbase != RP2040_UART0_BASE ||
+          g_uart0priv.basefreq != BOARD_UART_BASEFREQ ||
+          g_uart0priv.id != 0 ||
+          g_uart0priv.irq != RP2040_UART0_IRQ ||
+          g_uart0priv.parity != CONFIG_UART0_PARITY ||
+          g_uart0priv.bits != CONFIG_UART0_BITS ||
+          g_uart0priv.stopbits2 != CONFIG_UART0_2STOP)
+        {
+          ok = false;
+          repaired = true;
+          g_uart0priv.uartbase = RP2040_UART0_BASE;
+          g_uart0priv.basefreq = BOARD_UART_BASEFREQ;
+          g_uart0priv.id = 0;
+          g_uart0priv.irq = RP2040_UART0_IRQ;
+          g_uart0priv.parity = CONFIG_UART0_PARITY;
+          g_uart0priv.bits = CONFIG_UART0_BITS;
+          g_uart0priv.stopbits2 = CONFIG_UART0_2STOP;
+          if ((uart0_diag_bits & (1u << 11)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('B');
+              uart0_diag_bits |= (1u << 11);
+            }
+        }
+
+      if (dev->xmit.buffer != g_uart0txbuffer)
+        {
+          uintptr_t bad = (uintptr_t)dev->xmit.buffer;
+          ok = false;
+          repaired = true;
+          dev->xmit.buffer = g_uart0txbuffer;
+          if ((uart0_diag_bits & (1u << 7)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('Q');
+              arm_lowputc('[');
+              rp2040_diag_hex32(bad);
+              arm_lowputc(']');
+              uart0_diag_bits |= (1u << 7);
+            }
+        }
+
+      if (dev->xmit.size != CONFIG_UART0_TXBUFSIZE)
+        {
+          ok = false;
+          repaired = true;
+          dev->xmit.size = CONFIG_UART0_TXBUFSIZE;
+          if ((uart0_diag_bits & (1u << 8)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('q');
+              uart0_diag_bits |= (1u << 8);
+            }
+        }
+
+      if (g_uart0rxguard.pre != RP2040_UART_CANARY_PRE ||
+          g_uart0rxguard.post != RP2040_UART_CANARY_POST ||
+          g_uart0port_pre != RP2040_UART_CANARY_PRE ||
+          g_uart0port_post != RP2040_UART_CANARY_POST ||
+          g_uart0priv_pre != RP2040_UART_CANARY_PRE ||
+          g_uart0priv_post != RP2040_UART_CANARY_POST ||
+          g_uart0port_pre2 != RP2040_UART_CANARY_PRE ||
+          g_uart0port_post2 != RP2040_UART_CANARY_POST)
+        {
+          ok = false;
+          repaired = true;
+          g_uart0rxguard.pre = RP2040_UART_CANARY_PRE;
+          g_uart0rxguard.post = RP2040_UART_CANARY_POST;
+          g_uart0port_pre = RP2040_UART_CANARY_PRE;
+          g_uart0port_post = RP2040_UART_CANARY_POST;
+          g_uart0priv_pre = RP2040_UART_CANARY_PRE;
+          g_uart0priv_post = RP2040_UART_CANARY_POST;
+          g_uart0port_pre2 = RP2040_UART_CANARY_PRE;
+          g_uart0port_post2 = RP2040_UART_CANARY_POST;
+          if ((uart0_diag_bits & (1u << 0)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('C');
+              uart0_diag_bits |= (1u << 0);
+            }
+        }
+
+      if (dev->recv.buffer != g_uart0rxguard.data)
+        {
+          uintptr_t bad = (uintptr_t)dev->recv.buffer;
+          ok = false;
+          repaired = true;
+          dev->recv.buffer = g_uart0rxguard.data;
+          if ((uart0_diag_bits & (1u << 1)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('P');
+              arm_lowputc('[');
+              rp2040_diag_hex32(bad);
+              arm_lowputc(']');
+              uart0_diag_bits |= (1u << 1);
+            }
+        }
+
+      if (dev->recv.size != CONFIG_UART0_RXBUFSIZE)
+        {
+          ok = false;
+          repaired = true;
+          dev->recv.size = CONFIG_UART0_RXBUFSIZE;
+          if ((uart0_diag_bits & (1u << 2)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('S');
+              uart0_diag_bits |= (1u << 2);
+            }
+        }
+
+      if (dev->recv.head >= dev->recv.size)
+        {
+          ok = false;
+          repaired = true;
+          dev->recv.head = 0;
+          if ((uart0_diag_bits & (1u << 3)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('H');
+              uart0_diag_bits |= (1u << 3);
+            }
+        }
+
+      if (dev->recv.tail >= dev->recv.size)
+        {
+          ok = false;
+          repaired = true;
+          dev->recv.tail = 0;
+          if ((uart0_diag_bits & (1u << 4)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('T');
+              uart0_diag_bits |= (1u << 4);
+            }
+        }
+
+      if (dev->xmit.head >= dev->xmit.size)
+        {
+          ok = false;
+          repaired = true;
+          dev->xmit.head = 0;
+          if ((uart0_diag_bits & (1u << 9)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('U');
+              uart0_diag_bits |= (1u << 9);
+            }
+        }
+
+      if (dev->xmit.tail >= dev->xmit.size)
+        {
+          ok = false;
+          repaired = true;
+          dev->xmit.tail = 0;
+          if ((uart0_diag_bits & (1u << 10)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('u');
+              uart0_diag_bits |= (1u << 10);
+            }
+        }
+
+      if (repaired)
+        {
+          if ((uart0_diag_bits & (1u << 12)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('D');
+              arm_lowputc('{');
+              rp2040_diag_dump_words(dev, 12);
+              arm_lowputc('}');
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('E');
+              arm_lowputc('{');
+              rp2040_diag_dump_words(&g_uart0priv, 6);
+              arm_lowputc('}');
+              uart0_diag_bits |= (1u << 12);
+            }
+
+          /* Hard re-seed critical invariants for UART0 descriptor without
+           * touching semaphore state in recv/xmit buffers.
+           */
+
+          dev->ops = &g_uart_ops;
+          dev->priv = &g_uart0priv;
+          dev->recv.buffer = g_uart0rxguard.data;
+          dev->recv.size = CONFIG_UART0_RXBUFSIZE;
+          if (dev->recv.head >= dev->recv.size)
+            {
+              dev->recv.head = 0;
+            }
+
+          if (dev->recv.tail >= dev->recv.size)
+            {
+              dev->recv.tail = 0;
+            }
+
+          dev->xmit.buffer = g_uart0txbuffer;
+          dev->xmit.size = CONFIG_UART0_TXBUFSIZE;
+          if (dev->xmit.head >= dev->xmit.size)
+            {
+              dev->xmit.head = 0;
+            }
+
+          if (dev->xmit.tail >= dev->xmit.size)
+            {
+              dev->xmit.tail = 0;
+            }
+        }
+
+      return ok;
+    }
+#endif
+
+#ifdef CONFIG_RP2040_UART1
+  static uint16_t uart1_diag_bits;
+  bool repaired1 = false;
+
+  if (dev == &g_uart1port)
+    {
+      if (dev->recv.size == 0)
+        {
+          ok = false;
+          dev->recv.size = CONFIG_UART1_RXBUFSIZE;
+        }
+
+      if (dev->ops != &g_uart_ops)
+        {
+          ok = false;
+          repaired1 = true;
+          dev->ops = &g_uart_ops;
+          if ((uart1_diag_bits & (1u << 5)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('o');
+              uart1_diag_bits |= (1u << 5);
+            }
+        }
+
+      if (dev->priv != &g_uart1priv)
+        {
+          ok = false;
+          repaired1 = true;
+          dev->priv = &g_uart1priv;
+          if ((uart1_diag_bits & (1u << 6)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('v');
+              uart1_diag_bits |= (1u << 6);
+            }
+        }
+
+      if (g_uart1priv.uartbase != RP2040_UART1_BASE ||
+          g_uart1priv.basefreq != BOARD_UART_BASEFREQ ||
+          g_uart1priv.id != 1 ||
+          g_uart1priv.irq != RP2040_UART1_IRQ ||
+          g_uart1priv.parity != CONFIG_UART1_PARITY ||
+          g_uart1priv.bits != CONFIG_UART1_BITS ||
+          g_uart1priv.stopbits2 != CONFIG_UART1_2STOP)
+        {
+          ok = false;
+          repaired1 = true;
+          g_uart1priv.uartbase = RP2040_UART1_BASE;
+          g_uart1priv.basefreq = BOARD_UART_BASEFREQ;
+          g_uart1priv.id = 1;
+          g_uart1priv.irq = RP2040_UART1_IRQ;
+          g_uart1priv.parity = CONFIG_UART1_PARITY;
+          g_uart1priv.bits = CONFIG_UART1_BITS;
+          g_uart1priv.stopbits2 = CONFIG_UART1_2STOP;
+          if ((uart1_diag_bits & (1u << 11)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('b');
+              uart1_diag_bits |= (1u << 11);
+            }
+        }
+
+      if (dev->xmit.buffer != g_uart1txbuffer)
+        {
+          ok = false;
+          repaired1 = true;
+          dev->xmit.buffer = g_uart1txbuffer;
+          if ((uart1_diag_bits & (1u << 7)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('w');
+              uart1_diag_bits |= (1u << 7);
+            }
+        }
+
+      if (dev->xmit.size != CONFIG_UART1_TXBUFSIZE)
+        {
+          ok = false;
+          repaired1 = true;
+          dev->xmit.size = CONFIG_UART1_TXBUFSIZE;
+          if ((uart1_diag_bits & (1u << 8)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('W');
+              uart1_diag_bits |= (1u << 8);
+            }
+        }
+
+      if (g_uart1rxguard.pre != RP2040_UART_CANARY_PRE ||
+          g_uart1rxguard.post != RP2040_UART_CANARY_POST ||
+          g_uart1port_pre != RP2040_UART_CANARY_PRE ||
+          g_uart1port_post != RP2040_UART_CANARY_POST ||
+          g_uart1priv_pre != RP2040_UART_CANARY_PRE ||
+          g_uart1priv_post != RP2040_UART_CANARY_POST ||
+          g_uart1port_pre2 != RP2040_UART_CANARY_PRE ||
+          g_uart1port_post2 != RP2040_UART_CANARY_POST)
+        {
+          ok = false;
+          repaired1 = true;
+          g_uart1rxguard.pre = RP2040_UART_CANARY_PRE;
+          g_uart1rxguard.post = RP2040_UART_CANARY_POST;
+          g_uart1port_pre = RP2040_UART_CANARY_PRE;
+          g_uart1port_post = RP2040_UART_CANARY_POST;
+          g_uart1priv_pre = RP2040_UART_CANARY_PRE;
+          g_uart1priv_post = RP2040_UART_CANARY_POST;
+          g_uart1port_pre2 = RP2040_UART_CANARY_PRE;
+          g_uart1port_post2 = RP2040_UART_CANARY_POST;
+          if ((uart1_diag_bits & (1u << 0)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('c');
+              uart1_diag_bits |= (1u << 0);
+            }
+        }
+
+      if (dev->recv.buffer != g_uart1rxguard.data)
+        {
+          ok = false;
+          repaired1 = true;
+          dev->recv.buffer = g_uart1rxguard.data;
+          if ((uart1_diag_bits & (1u << 1)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('p');
+              uart1_diag_bits |= (1u << 1);
+            }
+        }
+
+      if (dev->recv.size != CONFIG_UART1_RXBUFSIZE)
+        {
+          ok = false;
+          repaired1 = true;
+          dev->recv.size = CONFIG_UART1_RXBUFSIZE;
+          if ((uart1_diag_bits & (1u << 2)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('s');
+              uart1_diag_bits |= (1u << 2);
+            }
+        }
+
+      if (dev->recv.head >= dev->recv.size)
+        {
+          ok = false;
+          repaired1 = true;
+          dev->recv.head = 0;
+          if ((uart1_diag_bits & (1u << 3)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('h');
+              uart1_diag_bits |= (1u << 3);
+            }
+        }
+
+      if (dev->recv.tail >= dev->recv.size)
+        {
+          ok = false;
+          repaired1 = true;
+          dev->recv.tail = 0;
+          if ((uart1_diag_bits & (1u << 4)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('t');
+              uart1_diag_bits |= (1u << 4);
+            }
+        }
+
+      if (dev->xmit.head >= dev->xmit.size)
+        {
+          ok = false;
+          repaired1 = true;
+          dev->xmit.head = 0;
+          if ((uart1_diag_bits & (1u << 9)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('m');
+              uart1_diag_bits |= (1u << 9);
+            }
+        }
+
+      if (dev->xmit.tail >= dev->xmit.size)
+        {
+          ok = false;
+          repaired1 = true;
+          dev->xmit.tail = 0;
+          if ((uart1_diag_bits & (1u << 10)) == 0)
+            {
+              arm_lowputc('!');
+              arm_lowputc(src);
+              arm_lowputc('M');
+              uart1_diag_bits |= (1u << 10);
+            }
+        }
+
+      if (repaired1)
+        {
+          dev->ops = &g_uart_ops;
+          dev->priv = &g_uart1priv;
+          dev->recv.buffer = g_uart1rxguard.data;
+          dev->recv.size = CONFIG_UART1_RXBUFSIZE;
+          if (dev->recv.head >= dev->recv.size)
+            {
+              dev->recv.head = 0;
+            }
+
+          if (dev->recv.tail >= dev->recv.size)
+            {
+              dev->recv.tail = 0;
+            }
+
+          dev->xmit.buffer = g_uart1txbuffer;
+          dev->xmit.size = CONFIG_UART1_TXBUFSIZE;
+          if (dev->xmit.head >= dev->xmit.size)
+            {
+              dev->xmit.head = 0;
+            }
+
+          if (dev->xmit.tail >= dev->xmit.size)
+            {
+              dev->xmit.tail = 0;
+            }
+        }
+
+      return ok;
+    }
+#endif
+
+  return true;
+}
+#endif
 
 /****************************************************************************
  * Inline Functions
@@ -497,6 +1157,13 @@ static int up_attach(struct uart_dev_s *dev)
        */
 
       up_enable_irq(priv->irq);
+
+      /* RP2040 SMP bring-up: ensure RX interrupt source is enabled as soon
+       * as the IRQ line is attached, otherwise read-side waits can starve
+       * before rxint() is reached by higher layers.
+       */
+
+      up_rxint(dev, true);
     }
 
   return ret;
@@ -583,6 +1250,9 @@ static int up_interrupt(int irq, void *context, void *arg)
        */
 
       status = up_serialin(priv, RP2040_UART_UARTMIS_OFFSET);
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      arm_lowputc('m');
+#endif
       if (status == 0)
         {
           return OK;
@@ -607,7 +1277,13 @@ static int up_interrupt(int irq, void *context, void *arg)
 
       if (status & (RP2040_UART_UARTICR_RXIC | RP2040_UART_UARTICR_RTIC))
         {
+#ifdef CONFIG_ARCH_CHIP_RP2040
+          arm_lowputc('r');
+#endif
           uart_recvchars(dev);
+#ifdef CONFIG_ARCH_CHIP_RP2040
+          arm_lowputc('R');
+#endif
         }
 
       if (status & RP2040_UART_UARTICR_TXIC)
@@ -843,20 +1519,38 @@ static void up_rxint(struct uart_dev_s *dev, bool enable)
   struct up_dev_s *priv = (struct up_dev_s *)dev->priv;
   irqstate_t flags;
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  if (!enable)
+    {
+      arm_lowputc('R');
+      arm_lowputc('X');
+    }
+#endif
+
   flags = spin_lock_irqsave(&priv->lock);
   if (enable)
     {
 #ifndef CONFIG_SUPPRESS_SERIAL_INTS
-      priv->ier |= (RP2040_UART_UARTICR_RXIC | RP2040_UART_UARTICR_RTIC);
+      priv->ier |= (RP2040_UART_UARTIMSC_RXIM | RP2040_UART_UARTIMSC_RTIM);
+#else
+      arm_lowputc('-');  /* Suppressed (no RX ints!) */
 #endif
     }
   else
     {
-      priv->ier &= ~(RP2040_UART_UARTICR_RXIC | RP2040_UART_UARTICR_RTIC);
+      arm_lowputc('d');  /* Disabling RX ints */
+      priv->ier &= ~(RP2040_UART_UARTIMSC_RXIM | RP2040_UART_UARTIMSC_RTIM);
     }
 
   up_serialout(priv, RP2040_UART_UARTIMSC_OFFSET, priv->ier);
   spin_unlock_irqrestore(&priv->lock, flags);
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  if (!enable)
+    {
+      arm_lowputc(')');
+    }
+#endif
 }
 
 /****************************************************************************
@@ -980,7 +1674,13 @@ void arm_earlyserialinit(void)
 
 #  ifdef CONSOLE_DEV
   CONSOLE_DEV.isconsole = true;
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* RP2040 console is already configured in rp2040_lowsetup(). Re-running
+   * up_setup() here can disrupt low-level debug output during early boot.
+   */
+#else
   up_setup(&CONSOLE_DEV);
+#endif
 #  endif
 }
 #endif

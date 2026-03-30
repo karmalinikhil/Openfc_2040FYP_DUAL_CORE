@@ -22,8 +22,12 @@
  * Included Files
  ****************************************************************************/
 
+#include <nuttx/config.h>
+
 #include <sys/types.h>
 #include <stdbool.h>
+#include <fcntl.h>
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
@@ -43,6 +47,7 @@
 #include <nuttx/binfmt/binfmt.h>
 #include <nuttx/drivers/drivers.h>
 #include <nuttx/init.h>
+#include <nuttx/syslog/syslog.h>
 
 #include "sched/sched.h"
 #include "signal/signal.h"
@@ -54,6 +59,124 @@
 #include "group/group.h"
 #include "init/init.h"
 #include "tls/tls.h"
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+extern void arm_serialinit(void);
+#define showprogress(c) arm_lowputc((char)(c))
+
+static void nx_rp2040_late_stdio_and_init(void)
+{
+  int flags;
+  int srcfd;
+  int i;
+
+  showprogress('p');
+
+  /* Register serial/dev nodes only after sched_unlock(). */
+
+  showprogress('R');
+  arm_serialinit();
+  showprogress('S');
+  syslog_initialize();
+  showprogress('Y');
+  devnull_register();
+  showprogress('Z');
+
+  /* Recreate standard fds if stdin is missing/invalid.  We do this after
+   * sched_unlock() so console opens happen only after the sensitive locked
+   * bring-up phase is over.
+   */
+
+  flags = nx_fcntl(0, F_GETFL);
+  if (flags < 0 || (flags & O_ACCMODE) == O_WRONLY)
+    {
+      showprogress('c');
+
+      srcfd = -1;
+      for (i = 1; i < 256; i++)
+        {
+          flags = nx_fcntl(i, F_GETFL);
+          if (flags >= 0 && (flags & O_ACCMODE) != O_WRONLY)
+            {
+              srcfd = i;
+              break;
+            }
+        }
+
+      /* RP2040 fallback: if no read-capable inherited fd exists, reuse any
+       * valid inherited fd (typically stdout/stderr) before attempting a
+       * late console open.
+       */
+
+      if (srcfd < 0)
+        {
+          for (i = 1; i < 256; i++)
+            {
+              flags = nx_fcntl(i, F_GETFL);
+              if (flags >= 0)
+                {
+                  srcfd = i;
+                  showprogress('o');
+                  break;
+                }
+            }
+        }
+
+      /* If stdio was never created during idle-task setup, no inherited file
+       * descriptor may exist at all. At this post-unlock point, try the
+       * concrete UART node first using a non-blocking open so RP2040-specific
+       * fast-fail and lockless lookup paths can break inode/close contention.
+       * Fall back to /dev/console only if the direct UART path is absent.
+       */
+
+      if (srcfd < 0)
+        {
+          showprogress('O');
+          srcfd = nx_open("/dev/ttyS0", O_RDWR | O_NONBLOCK);
+          if (srcfd < 0)
+            {
+              showprogress('T');
+              srcfd = nx_open("/dev/console", O_RDWR | O_NONBLOCK);
+            }
+        }
+
+      if (srcfd >= 0)
+        {
+          showprogress('6');
+          if (nx_dup2(srcfd, 0) < 0)
+            {
+              showprogress('X');
+            }
+          else
+            {
+              showprogress('7');
+              /* stdin is the critical piece for NSH. Avoid any additional
+               * stdout/stderr probing or dup2 activity here; that follow-up
+               * handling has proven to be the next contention point in the
+               * RP2040 SMP bring-up path.
+               */
+              showprogress('d');
+            }
+        }
+      else
+        {
+          showprogress('R');
+          showprogress('s');
+
+          showprogress('h');
+        }
+    }
+
+  /* readline_fd maps EAGAIN to EOF in this branch. Keep stdio blocking. */
+
+  showprogress('q');
+  nx_create_initthread();
+  showprogress('y');
+}
+#else
+#define showprogress(c)
+#endif
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -333,7 +456,7 @@ void nx_start(void)
 {
   int i;
 
-  sinfo("Entry\n");
+  showprogress('N');
 
   /* Boot up is complete */
 
@@ -654,10 +777,12 @@ void nx_start(void)
    */
 
   up_initialize();
+  showprogress('H');
 
   /* Initialize common drivers */
 
   drivers_initialize();
+  showprogress('J');
 
 #ifdef CONFIG_BOARD_EARLY_INITIALIZE
   /* Call the board-specific up_initialize() extension to support
@@ -667,6 +792,7 @@ void nx_start(void)
 
   board_early_initialize();
 #endif
+  showprogress('K');
 
   /* Hardware resources are now available */
 
@@ -699,6 +825,8 @@ void nx_start(void)
         }
     }
 
+  showprogress('L');
+
 #ifdef CONFIG_SMP
   /* Start all CPUs *********************************************************/
 
@@ -709,6 +837,7 @@ void nx_start(void)
   /* Then start the other CPUs */
 
   DEBUGVERIFY(nx_smp_start());
+  showprogress('m');
 
 #endif /* CONFIG_SMP */
 
@@ -721,14 +850,22 @@ void nx_start(void)
   /* Create initial tasks and bring-up the system */
 
   DEBUGVERIFY(nx_bringup());
+  showprogress('b');
 
   /* Enter to idleloop */
 
   g_nx_initstate = OSINIT_IDLELOOP;
+  showprogress('V');
 
   /* Let other threads have access to the memory manager */
 
   sched_unlock();
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  nx_rp2040_late_stdio_and_init();
+#endif
+
+  showprogress('U');
 
   /* The IDLE Loop **********************************************************/
 

@@ -36,6 +36,10 @@
 #include <nuttx/signal.h>
 #include <nuttx/serial/serial.h>
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern bool rp2040_uart_diag_repair(FAR uart_dev_t *dev, char src);
+#endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -55,6 +59,22 @@
 void uart_xmitchars(FAR uart_dev_t *dev)
 {
   uint16_t nbytes = 0;
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  rp2040_uart_diag_repair(dev, 'i');
+  if (dev->xmit.size > 0)
+    {
+      if (dev->xmit.head >= dev->xmit.size)
+        {
+          dev->xmit.head = 0;
+        }
+
+      if (dev->xmit.tail >= dev->xmit.size)
+        {
+          dev->xmit.tail = 0;
+        }
+    }
+#endif
 
 #ifdef CONFIG_SMP
   irqstate_t flags = enter_critical_section();
@@ -130,6 +150,10 @@ void uart_recvchars(FAR uart_dev_t *dev)
 #endif
   uint16_t nbytes = 0;
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  rp2040_uart_diag_repair(dev, 'i');
+#endif
+
   if (nexthead >= rxbuf->size)
     {
       nexthead = 0;
@@ -148,6 +172,30 @@ void uart_recvchars(FAR uart_dev_t *dev)
 
   while (uart_rxavailable(dev))
     {
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      rp2040_uart_diag_repair(dev, 'i');
+
+      if (rxbuf->size == 0)
+        {
+          break;
+        }
+
+      if (rxbuf->head >= rxbuf->size)
+        {
+          rxbuf->head = 0;
+        }
+
+      if (rxbuf->tail >= rxbuf->size)
+        {
+          rxbuf->tail = 0;
+        }
+
+      nexthead = rxbuf->head + 1;
+      if (nexthead >= rxbuf->size)
+        {
+          nexthead = 0;
+        }
+#endif
       bool is_full = (nexthead == rxbuf->tail);
       char ch;
 
@@ -219,6 +267,9 @@ void uart_recvchars(FAR uart_dev_t *dev)
 
       if (!is_full)
         {
+#ifdef CONFIG_ARCH_CHIP_RP2040
+          rp2040_uart_diag_repair(dev, 'i');
+#endif
           /* Add the character to the buffer */
 
           rxbuf->buffer[rxbuf->head] = ch;

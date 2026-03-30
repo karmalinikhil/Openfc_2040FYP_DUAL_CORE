@@ -60,7 +60,10 @@ int group_setupidlefiles(FAR struct task_tcb_s *tcb)
 {
   FAR struct task_group_s *group = tcb->cmn.group;
 #ifdef CONFIG_DEV_CONSOLE
+#ifndef CONFIG_ARCH_CHIP_RP2040
+  FAR const char *stdinpath = "/dev/console";
   int fd;
+#endif
 #endif
 
   DEBUGASSERT(group != NULL);
@@ -71,7 +74,13 @@ int group_setupidlefiles(FAR struct task_tcb_s *tcb)
    */
 
 #ifdef CONFIG_DEV_CONSOLE
-  fd = nx_open("/dev/console", O_RDWR);
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* RP2040 SMP bring-up: opening console devices here can still deadlock
+   * while scheduler/FS locking is in a sensitive phase. Keep this path
+   * side-effect free and let nx_start post-unlock helper repair stdio.
+   */
+#else
+  fd = nx_open(stdinpath, O_RDWR);
   if (fd == 0)
     {
       /* Successfully opened /dev/console as stdin (fd == 0) */
@@ -97,6 +106,7 @@ int group_setupidlefiles(FAR struct task_tcb_s *tcb)
 
       return -ENFILE;
     }
+#endif
 #endif
 
   /* Allocate file/socket streams for the TCB */

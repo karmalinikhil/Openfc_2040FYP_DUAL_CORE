@@ -37,6 +37,13 @@
 
 #include "nshlib/nshlib.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define nshprogress(c) arm_lowputc((char)(c))
+#else
+#  define nshprogress(c)
+#endif
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -103,9 +110,22 @@ int main(int argc, FAR char *argv[])
   int exitval = 0;
   int ret;
 
+  nshprogress('0');
+
   /* Check the task priority that we were started with */
 
   sched_getparam(0, &param);
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* Keep inherited high priority during RP2040 SMP bring-up. Dropping to
+   * CONFIG_SYSTEM_NSH_PRIORITY too early can starve NSH before it reaches
+   * console/session init.
+   */
+  if (param.sched_priority < CONFIG_SYSTEM_NSH_PRIORITY)
+    {
+      param.sched_priority = CONFIG_SYSTEM_NSH_PRIORITY;
+      sched_setparam(0, &param);
+    }
+#else
   if (param.sched_priority != CONFIG_SYSTEM_NSH_PRIORITY)
     {
       /* If not then set the priority to the configured priority */
@@ -113,6 +133,9 @@ int main(int argc, FAR char *argv[])
       param.sched_priority = CONFIG_SYSTEM_NSH_PRIORITY;
       sched_setparam(0, &param);
     }
+#endif
+
+  nshprogress('1');
 
 #if defined(CONFIG_SYSTEM_NSH_SYMTAB)
   /* Make sure that we are using our symbol table */
@@ -126,6 +149,7 @@ int main(int argc, FAR char *argv[])
   /* Initialize the NSH library */
 
   nsh_initialize();
+  nshprogress('2');
 
 #if defined(CONFIG_NSH_TELNET) && !defined(CONFIG_NETINIT_NETLOCAL)
   /* If the Telnet console is selected as a front-end, then start the
@@ -150,7 +174,9 @@ int main(int argc, FAR char *argv[])
 #ifdef CONFIG_NSH_CONSOLE
   /* If the serial console front end is selected, run it on this thread */
 
+  nshprogress('3');
   ret = nsh_consolemain(argc, argv);
+  nshprogress('4');
 
   /* nsh_consolemain() should not return.  So if we get here, something
    * is wrong.

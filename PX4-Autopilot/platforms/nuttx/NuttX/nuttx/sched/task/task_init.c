@@ -40,6 +40,13 @@
 #include "task/task.h"
 #include "tls/tls.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define initprogress(c) arm_lowputc((char)(c))
+#else
+#  define initprogress(c)
+#endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -98,25 +105,31 @@ int nxtask_init(FAR struct task_tcb_s *tcb, const char *name, int priority,
 
   /* Create a new task group */
 
+  initprogress('g');
   ret = group_allocate(tcb, tcb->cmn.flags);
   if (ret < 0)
     {
+      initprogress('G');
       return ret;
     }
 
   /* Duplicate the parent tasks environment */
 
+  initprogress('h');
   ret = env_dup(tcb->cmn.group, envp);
   if (ret < 0)
     {
+      initprogress('H');
       goto errout_with_group;
     }
 
   /* Associate file descriptors with the new task */
 
+  initprogress('i');
   ret = group_setuptaskfiles(tcb);
   if (ret < 0)
     {
+      initprogress('I');
       goto errout_with_group;
     }
 
@@ -124,48 +137,59 @@ int nxtask_init(FAR struct task_tcb_s *tcb, const char *name, int priority,
     {
       /* Use pre-allocated stack */
 
+      initprogress('j');
       ret = up_use_stack(&tcb->cmn, stack, stack_size);
     }
   else
     {
       /* Allocate the stack for the TCB */
 
+      initprogress('k');
       ret = up_create_stack(&tcb->cmn, stack_size, ttype);
     }
 
   if (ret < OK)
     {
+      initprogress('K');
       goto errout_with_group;
     }
 
   /* Initialize thread local storage */
 
+  initprogress('l');
   ret = tls_init_info(&tcb->cmn);
   if (ret < OK)
     {
+      initprogress('L');
       goto errout_with_group;
     }
 
   /* Initialize the task control block */
 
+  initprogress('m');
   ret = nxtask_setup_scheduler(tcb, priority, nxtask_start,
                                entry, ttype);
   if (ret < OK)
     {
+      initprogress('M');
       goto errout_with_group;
     }
 
   /* Setup to pass parameters to the new task */
 
+  initprogress('n');
   ret = nxtask_setup_arguments(tcb, name, argv);
   if (ret < OK)
     {
+      initprogress('N');
       goto errout_with_group;
     }
 
   /* Now we have enough in place that we can join the group */
 
+  initprogress('o');
   group_initialize(tcb);
+  initprogress('p');
   return ret;
 
 errout_with_group:

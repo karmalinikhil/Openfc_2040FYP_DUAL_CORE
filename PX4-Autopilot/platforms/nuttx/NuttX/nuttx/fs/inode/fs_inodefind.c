@@ -31,6 +31,13 @@
 
 #include "inode/inode.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define inodefindprogress(c) arm_lowputc((char)(c))
+#else
+#  define inodefindprogress(c)
+#endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -58,6 +65,8 @@ int inode_find(FAR struct inode_search_s *desc)
   ret = inode_semtake();
   if (ret < 0)
     {
+      inodefindprogress('I');
+      inodefindprogress('7');
       return ret;
     }
 

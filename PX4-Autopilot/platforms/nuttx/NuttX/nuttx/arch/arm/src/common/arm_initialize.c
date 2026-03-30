@@ -119,7 +119,14 @@ void up_initialize(void)
   /* Initialize the serial device driver */
 
 #ifdef USE_SERIALDRIVER
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* Defer RP2040 UART device registration until after sched_unlock() in
+   * nx_start(). Early low-level console output remains available via
+   * rp2040_lowsetup().
+   */
+#else
   arm_serialinit();
+#endif
 #endif
 
   /* Initialize the network */

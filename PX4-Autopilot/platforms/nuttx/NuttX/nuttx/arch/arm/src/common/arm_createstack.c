@@ -39,6 +39,13 @@
 
 #include "arm_internal.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define stackprogress(c) arm_lowputc((char)(c))
+#else
+#  define stackprogress(c)
+#endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -83,6 +90,8 @@
 
 int up_create_stack(struct tcb_s *tcb, size_t stack_size, uint8_t ttype)
 {
+  stackprogress('u');
+
 #ifdef CONFIG_TLS_ALIGNED
   /* The allocated stack size must not exceed the maximum possible for the
    * TLS feature.
@@ -108,6 +117,8 @@ int up_create_stack(struct tcb_s *tcb, size_t stack_size, uint8_t ttype)
 
   if (!tcb->stack_alloc_ptr)
     {
+      stackprogress('v');
+
       /* Allocate the stack.  If DEBUG is enabled (but not stack debug),
        * then create a zeroed stack to make stack dumps easier to trace.
        * If TLS is enabled, then we must allocate aligned stacks.
@@ -119,6 +130,7 @@ int up_create_stack(struct tcb_s *tcb, size_t stack_size, uint8_t ttype)
 
       if (ttype == TCB_FLAG_TTYPE_KERNEL)
         {
+          stackprogress('w');
           tcb->stack_alloc_ptr = kmm_memalign(TLS_STACK_ALIGN, stack_size);
         }
       else
@@ -126,6 +138,7 @@ int up_create_stack(struct tcb_s *tcb, size_t stack_size, uint8_t ttype)
         {
           /* Use the user-space allocator if this is a task or pthread */
 
+          stackprogress('x');
           tcb->stack_alloc_ptr = kumm_memalign(TLS_STACK_ALIGN, stack_size);
         }
 
@@ -135,6 +148,7 @@ int up_create_stack(struct tcb_s *tcb, size_t stack_size, uint8_t ttype)
 
       if (ttype == TCB_FLAG_TTYPE_KERNEL)
         {
+          stackprogress('w');
           tcb->stack_alloc_ptr = kmm_malloc(stack_size);
         }
       else
@@ -142,9 +156,12 @@ int up_create_stack(struct tcb_s *tcb, size_t stack_size, uint8_t ttype)
         {
           /* Use the user-space allocator if this is a task or pthread */
 
+          stackprogress('x');
           tcb->stack_alloc_ptr = kumm_malloc(stack_size);
         }
 #endif /* CONFIG_TLS_ALIGNED */
+
+      stackprogress('y');
 
 #ifdef CONFIG_DEBUG_FEATURES
       /* Was the allocation successful? */
@@ -160,6 +177,7 @@ int up_create_stack(struct tcb_s *tcb, size_t stack_size, uint8_t ttype)
 
   if (tcb->stack_alloc_ptr)
     {
+      stackprogress('z');
       uintptr_t top_of_stack;
       size_t size_of_stack;
 
@@ -193,8 +211,10 @@ int up_create_stack(struct tcb_s *tcb, size_t stack_size, uint8_t ttype)
       tcb->flags |= TCB_FLAG_FREE_STACK;
 
       board_autoled_on(LED_STACKCREATED);
+      stackprogress('Z');
       return OK;
     }
 
+  stackprogress('F');
   return ERROR;
 }

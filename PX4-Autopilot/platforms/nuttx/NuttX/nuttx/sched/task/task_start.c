@@ -39,6 +39,13 @@
 #include "signal/signal.h"
 #include "task/task.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define taskprogress(c) arm_lowputc((char)(c))
+#else
+#  define taskprogress(c)
+#endif
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -78,6 +85,8 @@ void nxtask_start(void)
   FAR struct task_tcb_s *tcb = (FAR struct task_tcb_s *)this_task();
   int exitcode = EXIT_FAILURE;
   int argc;
+
+  taskprogress('T');
 
   DEBUGASSERT((tcb->cmn.flags & TCB_FLAG_TTYPE_MASK) != \
               TCB_FLAG_TTYPE_PTHREAD);
@@ -126,10 +135,12 @@ void nxtask_start(void)
 
   if ((tcb->cmn.flags & TCB_FLAG_TTYPE_MASK) == TCB_FLAG_TTYPE_KERNEL)
     {
+      taskprogress('K');
       exitcode = tcb->cmn.entry.main(argc, tcb->cmn.group->tg_info->argv);
     }
   else
     {
+      taskprogress('A');
 #ifdef CONFIG_BUILD_FLAT
       nxtask_startup(tcb->cmn.entry.main, argc,
                      tcb->cmn.group->tg_info->argv);

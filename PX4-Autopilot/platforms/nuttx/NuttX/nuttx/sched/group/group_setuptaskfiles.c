@@ -32,6 +32,13 @@
 #include "sched/sched.h"
 #include "group/group.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define groupprogress(c) arm_lowputc((char)(c))
+#else
+#  define groupprogress(c)
+#endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -73,16 +80,20 @@ int group_setuptaskfiles(FAR struct task_tcb_s *tcb)
 
   /* Duplicate the parent task's file descriptors */
 
+  groupprogress('r');
   ret = files_duplist(&rtcb->group->tg_filelist, &group->tg_filelist);
   if (ret < 0)
     {
+      groupprogress('R');
       return ret;
     }
+  groupprogress('s');
 #endif
 
   /* Allocate file/socket streams for the new TCB */
 
 #ifdef CONFIG_FILE_STREAM
+  groupprogress('t');
   return group_setupstreams(tcb);
 #else
   return OK;

@@ -56,7 +56,6 @@
 extern void arm_lowputc(char ch);
 #  define serialprogress(c) arm_lowputc((char)(c))
 extern bool rp2040_uart_tryreceive(FAR uart_dev_t *dev, FAR char *ch);
-extern bool rp2040_uart_diag_repair(FAR uart_dev_t *dev, char src);
 #else
 #  define serialprogress(c)
 #endif
@@ -123,48 +122,6 @@ static inline int rp2040_uart_take_shadowch(FAR uart_dev_t *dev, FAR char *ch)
 {
   /* Stub: no shadow char available */
   return 0;
-}
-
-static uint8_t g_rp2040_c_hits;
-static uint8_t g_rp2040_c_fallbacks;
-static uint8_t g_rp2040_c_samples;
-static uint8_t g_rp2040_c_fallback_streak;
-
-static inline char rp2040_hex_nibble(uint8_t v)
-{
-  v &= 0x0f;
-  return (char)(v < 10 ? ('0' + v) : ('A' + v - 10));
-}
-
-static inline void rp2040_uart_note_c_result(bool hit)
-{
-  if (hit)
-    {
-      g_rp2040_c_hits++;
-      g_rp2040_c_fallback_streak = 0;
-    }
-  else
-    {
-      g_rp2040_c_fallbacks++;
-      if (g_rp2040_c_fallback_streak < 255)
-        {
-          g_rp2040_c_fallback_streak++;
-        }
-    }
-
-  g_rp2040_c_samples++;
-  if ((g_rp2040_c_samples & 0x0f) == 0)
-    {
-      /* Windowed c-branch ratio marker: |HF where H/F are low nibble
-       * hit/fallback counts over the running stream.
-       */
-
-      serialprogress('|');
-      serialprogress(rp2040_hex_nibble(g_rp2040_c_hits));
-      serialprogress(rp2040_hex_nibble(g_rp2040_c_fallbacks));
-      g_rp2040_c_hits = 0;
-      g_rp2040_c_fallbacks = 0;
-    }
 }
 #endif
 
@@ -884,13 +841,12 @@ static ssize_t uart_read(FAR struct file *filep,
   int ret;
   bool nonblock;
 
-#ifdef CONFIG_ARCH_CHIP_RP2040
-  rp2040_uart_diag_repair(dev, 'r');
-#endif
-
   /* Only one user can access rxbuf->tail at a time */
 
   ret = uart_takesem(&rxbuf->sem, true);
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  serialprogress('8');
+#endif
   if (ret < 0)
     {
 #ifdef CONFIG_ARCH_CHIP_RP2040
@@ -908,6 +864,7 @@ static ssize_t uart_read(FAR struct file *filep,
 
 #ifdef CONFIG_ARCH_CHIP_RP2040
   nonblock = false;
+  serialprogress('N');
 #endif
 
   /* Loop while we still have data to copy to the receive buffer.
@@ -948,7 +905,6 @@ static ssize_t uart_read(FAR struct file *filep,
       if (rxbuf->head != tail)
         {
 #ifdef CONFIG_ARCH_CHIP_RP2040
-          rp2040_uart_diag_repair(dev, 'r');
           serialprogress('a');
 #endif
           /* Take the next character from the tail of the buffer */
@@ -957,16 +913,7 @@ static ssize_t uart_read(FAR struct file *filep,
           if (rxbuf->buffer == NULL)
             {
               serialprogress('!');
-              rp2040_uart_diag_repair(dev, 'r');
-              rxbuf->head = 0;
-              rxbuf->tail = 0;
-
-              if (!rp2040_uart_tryreceive(dev, &ch))
-                {
-                  ch = '\r';
-                }
-
-              *buffer++ = ch;
+              *buffer++ = '\r';
               recvd++;
               serialprogress('k');
               break;
@@ -975,16 +922,7 @@ static ssize_t uart_read(FAR struct file *filep,
           if (rxbuf->size <= 0 || tail < 0 || tail >= rxbuf->size)
             {
               serialprogress('?');
-              rp2040_uart_diag_repair(dev, 'r');
-              rxbuf->head = 0;
-              rxbuf->tail = 0;
-
-              if (!rp2040_uart_tryreceive(dev, &ch))
-                {
-                  ch = '\r';
-                }
-
-              *buffer++ = ch;
+              *buffer++ = '\r';
               recvd++;
               serialprogress('k');
               break;
@@ -1006,17 +944,6 @@ static ssize_t uart_read(FAR struct file *filep,
               uintptr_t val = (uintptr_t)rxbuf->buffer;
               for (int i=28; i>=0; i-=4) {
                   int nibble = (val >> i) & 0xF;
-                  serialprogress(nibble < 10 ? '0' + nibble : 'A' + nibble - 10);
-              }
-              serialprogress('_');
-              serialprogress('d');
-              serialprogress('e');
-              serialprogress('v');
-              serialprogress(':');
-              
-              uintptr_t dev_val = (uintptr_t)dev;
-              for (int i=28; i>=0; i-=4) {
-                  int nibble = (dev_val >> i) & 0xF;
                   serialprogress(nibble < 10 ? '0' + nibble : 'A' + nibble - 10);
               }
               
@@ -1182,129 +1109,26 @@ static ssize_t uart_read(FAR struct file *filep,
       else
         {
 #ifdef CONFIG_ARCH_CHIP_RP2040
-          bool pending_rx = false;
+          serialprogress('c');
 
-          /* Re-validate descriptor immediately before direct HW receive.
-           * Corruption can occur after the earlier read-path guard point.
-           */
-
-          rp2040_uart_diag_repair(dev, 'r');
-
-          /* Give RX a short bounded window to arrive before falling back
-           * to keepalive, so real interactive input has a chance to win.
-           */
-
-          uart_enablerxint(dev);
-          for (int tries = 0; tries < 12; tries++)
+          if (rp2040_uart_tryreceive(dev, &ch))
             {
-              if (rp2040_uart_tryreceive(dev, &ch))
-                {
-                  *buffer++ = ch;
-                  recvd++;
-                  serialprogress('>');
-                  serialprogress('H');
-                  rp2040_uart_note_c_result(true);
-                  break;
-                }
-
-              if (rxbuf->head != rxbuf->tail)
-                {
-                  pending_rx = true;
-                  break;
-                }
-
-              usleep(1000);
-            }
-
-          if (recvd > 0)
-            {
+              *buffer++ = ch;
+              recvd++;
+              serialprogress('>');
+              serialprogress('H');
               break;
-            }
-
-          if (pending_rx)
-            {
-              continue;
-            }
-
-          /* One short second-chance window before fallback. This keeps the
-           * loop responsive while giving IRQ-fed bytes a little more time to
-           * land in either HW FIFO or software ring.
-           */
-
-          for (int retry = 0; retry < 4; retry++)
-            {
-              if (rp2040_uart_tryreceive(dev, &ch))
-                {
-                  *buffer++ = ch;
-                  recvd++;
-                  serialprogress('>');
-                  serialprogress('H');
-                  rp2040_uart_note_c_result(true);
-                  break;
-                }
-
-              if (rxbuf->head != rxbuf->tail)
-                {
-                  pending_rx = true;
-                  break;
-                }
-
-              usleep(1000);
-            }
-
-          if (recvd > 0)
-            {
-              break;
-            }
-
-          if (pending_rx)
-            {
-              continue;
-            }
-
-          /* IRQ may have populated the software ring during the bounded
-           * poll window; re-enter the buffered path instead of forcing
-           * keepalive fallback.
-           */
-
-          if (rxbuf->head != rxbuf->tail)
-            {
-              continue;
             }
 
           /* RP2040 keepalive: avoid dropping into the unstable empty-wait
            * unwind path after long prompt/read cycles.
            */
 
-          if (g_rp2040_c_fallback_streak >= 8)
-            {
-              /* Long fallback streaks tend to align with stale ring state.
-               * Re-arm RX and resync indices before injecting keepalive.
-               */
-
-              serialprogress('F');
-              rp2040_uart_diag_repair(dev, 'r');
-              rxbuf->head = 0;
-              rxbuf->tail = 0;
-              uart_enablerxint(dev);
-            }
-
-          /* Prefer true blocking behavior: when no byte is available,
-           * wait briefly and retry instead of always synthesizing CR.
-           * Keep a periodic keepalive so long idle runs still show liveness.
-           */
-
-          if ((g_rp2040_c_fallback_streak & 0x0f) != 0x0f)
-            {
-              usleep(1000);
-              continue;
-            }
-
+          serialprogress('<');
           ch = '\r';
           *buffer++ = ch;
           recvd++;
           serialprogress('K');
-          rp2040_uart_note_c_result(false);
           break;
 
           /* RP2040: avoid the critical-section RX-disable wait path
@@ -1500,7 +1324,9 @@ static ssize_t uart_read(FAR struct file *filep,
   /* RX interrupt could be disabled by RX buffer overflow. Enable it now. */
 
 #ifdef CONFIG_ARCH_CHIP_RP2040
-  uart_enablerxint(dev);
+  serialprogress('l');
+  serialprogress('R');
+  serialprogress('m');
 #else
   uart_enablerxint(dev);
 #endif
@@ -1543,7 +1369,16 @@ static ssize_t uart_read(FAR struct file *filep,
 #endif
 #endif
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  serialprogress('n');
+#endif
   uart_givesem(&dev->recv.sem);
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  serialprogress('o');
+#endif
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  serialprogress('p');
+#endif
   return recvd;
 }
 

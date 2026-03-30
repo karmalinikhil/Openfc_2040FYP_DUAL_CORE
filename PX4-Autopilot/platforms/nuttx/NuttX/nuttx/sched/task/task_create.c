@@ -38,6 +38,13 @@
 #include "group/group.h"
 #include "task/task.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define createprogress(c) arm_lowputc((char)(c))
+#else
+#  define createprogress(c)
+#endif
+
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
@@ -78,6 +85,7 @@ static int nxthread_create(FAR const char *name, uint8_t ttype,
 
   /* Allocate a TCB for the new task. */
 
+  createprogress('a');
   tcb = (FAR struct task_tcb_s *)kmm_zalloc(sizeof(struct task_tcb_s));
   if (!tcb)
     {
@@ -91,10 +99,12 @@ static int nxthread_create(FAR const char *name, uint8_t ttype,
 
   /* Initialize the task */
 
+  createprogress('b');
   ret = nxtask_init(tcb, name, priority, stack_ptr, stack_size, entry, argv,
                     NULL);
   if (ret < OK)
     {
+      createprogress('c');
       kmm_free(tcb);
       return ret;
     }
@@ -105,7 +115,9 @@ static int nxthread_create(FAR const char *name, uint8_t ttype,
 
   /* Activate the task */
 
+  createprogress('d');
   nxtask_activate(&tcb->cmn);
+  createprogress('e');
 
   return (int)pid;
 }

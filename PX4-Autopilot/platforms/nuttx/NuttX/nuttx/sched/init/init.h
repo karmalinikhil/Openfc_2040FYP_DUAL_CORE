@@ -119,4 +119,15 @@ void nx_idle_trampoline(void);
 
 int nx_bringup(void);
 
+/****************************************************************************
+ * Name: nx_create_initthread
+ *
+ * Description:
+ *   Start the application initialization thread or run application bring-up
+ *   on the current thread depending on configuration.
+ *
+ ****************************************************************************/
+
+void nx_create_initthread(void);
+
 #endif /* __SCHED_INIT_INIT_H */

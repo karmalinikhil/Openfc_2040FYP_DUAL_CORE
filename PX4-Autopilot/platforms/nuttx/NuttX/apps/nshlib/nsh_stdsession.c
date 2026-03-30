@@ -28,6 +28,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <unistd.h>
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define nshsprogress(c) arm_lowputc((char)(c))
+#else
+#  define nshsprogress(c)
+#endif
 
 #ifdef CONFIG_NSH_CLE
 #  include "system/cle.h"
@@ -204,10 +212,16 @@ int nsh_session(FAR struct console_stdio_s *pstate,
            * perhaps we will be lucky and it will still be valid.
            */
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+          nshsprogress('e');
+          usleep(100000);
+          continue;
+#else
           printf(g_fmtcmdfailed, "nsh_session",
                  "readline", NSH_ERRNO);
           ret = EXIT_SUCCESS;
           break;
+#endif
         }
 #endif
 

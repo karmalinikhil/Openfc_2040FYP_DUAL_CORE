@@ -29,7 +29,11 @@
 #include "arm_internal.h"
 #include "hardware/rp2040_sio.h"
 
-#ifdef CONFIG_SMP
+#ifdef CONFIG_ARCH_HAVE_MULTICPU
+
+#ifdef up_cpu_index
+#  undef up_cpu_index
+#endif
 
 /****************************************************************************
  * Public Functions
@@ -56,4 +60,4 @@ int up_cpu_index(void)
   return getreg32(RP2040_SIO_CPUID);
 }
 
-#endif /* CONFIG_SMP */
+#endif /* CONFIG_ARCH_HAVE_MULTICPU */

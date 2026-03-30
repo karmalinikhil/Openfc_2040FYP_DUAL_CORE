@@ -39,6 +39,13 @@
 #include "inode/inode.h"
 #include "driver/driver.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define openprogress(c) arm_lowputc((char)(c))
+#else
+#  define openprogress(c)
+#endif
+
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
@@ -52,6 +59,8 @@ static int file_vopen(FAR struct file *filep, FAR const char *path,
 {
   struct inode_search_s desc;
   FAR struct inode *inode;
+  bool track_console_open;
+  bool track_ttys0_open;
 #ifndef CONFIG_DISABLE_MOUNTPOINT
   mode_t mode = 0666;
 #endif
@@ -60,6 +69,14 @@ static int file_vopen(FAR struct file *filep, FAR const char *path,
   if (path == NULL)
     {
       return -EINVAL;
+    }
+
+  track_ttys0_open = (strcmp(path, "/dev/ttyS0") == 0);
+  track_console_open = (strcmp(path, "/dev/console") == 0 ||
+                        track_ttys0_open);
+  if (track_console_open)
+    {
+      openprogress('f');
     }
 
 #ifndef CONFIG_DISABLE_MOUNTPOINT
@@ -78,9 +95,102 @@ static int file_vopen(FAR struct file *filep, FAR const char *path,
 
   SETUP_SEARCH(&desc, path, false);
 
-  ret = inode_find(&desc);
+  if (track_console_open && (oflags & O_NONBLOCK) != 0)
+    {
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      /* RP2040 late stdio recovery can stall inside inode_semtrytake()
+       * even for the direct UART path. For the tracked non-blocking ttyS0
+       * probe, bypass the trylock entirely and use the existing diagnostic
+       * lockless lookup path so we can determine whether the lock itself is
+       * the remaining blocker.
+       */
+
+      if (track_ttys0_open)
+        {
+          openprogress('y');
+          ret = inode_search(&desc);
+          if (ret >= 0)
+            {
+              desc.node->i_crefs++;
+              openprogress('k');
+            }
+          else
+            {
+              openprogress('K');
+            }
+        }
+      else
+#endif
+        {
+      ret = inode_semtrytake();
+      if (ret < 0)
+        {
+#ifdef CONFIG_ARCH_CHIP_RP2040
+          /* RP2040 SMP bring-up workaround: if inode lock appears stuck,
+           * permit a lockless lookup for tracked console non-blocking opens
+           * so we can validate whether lock contention is the stdin blocker.
+           */
+
+          if (track_console_open)
+            {
+              openprogress(track_ttys0_open ? 'z' : 'Z');
+              ret = inode_search(&desc);
+              if (ret >= 0)
+                {
+                  desc.node->i_crefs++;
+                }
+            }
+          else
+#endif
+            {
+          ret = -EAGAIN;
+          goto errout_with_search;
+            }
+        }
+
+      if (ret == OK)
+        {
+          ret = inode_search(&desc);
+          if (ret >= 0)
+            {
+              desc.node->i_crefs++;
+            }
+
+          inode_semgive();
+        }
+        }
+    }
+  else
+    {
+      ret = inode_find(&desc);
+    }
+  if (track_console_open)
+    {
+      openprogress('g');
+    }
+
   if (ret < 0)
     {
+      if (track_console_open)
+        {
+          if (ret == -EAGAIN)
+            {
+              openprogress('A');
+            }
+          else if (ret == -ENOENT)
+            {
+              openprogress('N');
+            }
+          else if (ret == -ENODEV)
+            {
+              openprogress('V');
+            }
+          else
+            {
+              openprogress('R');
+            }
+        }
+
       /* "O_CREAT is not set and the named file does not exist.  Or, a
        * directory component in pathname does not exist or is a dangling
        * symbolic link."
@@ -155,7 +265,17 @@ static int file_vopen(FAR struct file *filep, FAR const char *path,
     {
       if (inode->u.i_ops->open != NULL)
         {
+          if (track_console_open)
+            {
+              openprogress('h');
+            }
+
           ret = inode->u.i_ops->open(filep);
+
+          if (track_console_open)
+            {
+              openprogress('i');
+            }
         }
     }
   else
@@ -165,6 +285,28 @@ static int file_vopen(FAR struct file *filep, FAR const char *path,
 
   if (ret < 0)
     {
+      if (track_console_open)
+        {
+          openprogress('j');
+
+          if (ret == -EAGAIN)
+            {
+              openprogress('a');
+            }
+          else if (ret == -ENODEV)
+            {
+              openprogress('v');
+            }
+          else if (ret == -ENXIO)
+            {
+              openprogress('x');
+            }
+          else
+            {
+              openprogress('r');
+            }
+        }
+
       goto errout_with_inode;
     }
 
@@ -198,15 +340,35 @@ static int nx_vopen(FAR const char *path, int oflags, va_list ap)
       return ret;
     }
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  if (strcmp(path, "/dev/ttyS0") == 0 || strcmp(path, "/dev/console") == 0)
+    {
+      openprogress('L');
+    }
+#endif
+
   /* Allocate a new file descriptor for the inode */
 
   fd = files_allocate(filep.f_inode, filep.f_oflags,
                       filep.f_pos, filep.f_priv, 0);
   if (fd < 0)
     {
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      if (strcmp(path, "/dev/ttyS0") == 0 || strcmp(path, "/dev/console") == 0)
+        {
+          openprogress('l');
+        }
+#endif
       file_close(&filep);
       return fd;
     }
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  if (strcmp(path, "/dev/ttyS0") == 0 || strcmp(path, "/dev/console") == 0)
+    {
+      openprogress('D');
+    }
+#endif
 
   return fd;
 }

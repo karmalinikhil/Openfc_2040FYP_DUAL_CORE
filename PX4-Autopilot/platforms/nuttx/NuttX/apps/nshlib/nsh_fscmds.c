@@ -73,6 +73,13 @@
 #include "nsh.h"
 #include "nsh_console.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define fscmdprogress(c) arm_lowputc((char)(c))
+#else
+#  define fscmdprogress(c)
+#endif
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -1154,8 +1161,30 @@ int cmd_ls(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 
   /* See if it is a single file */
 
-  if (stat(fullpath, &st) < 0)
+  for (int tries = 0; ; tries++)
     {
+      ret = stat(fullpath, &st);
+      if (ret == 0)
+        {
+          break;
+        }
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      if (errno == EAGAIN && tries < 7)
+        {
+          fscmdprogress('S');
+          fscmdprogress('A');
+          usleep(2000);
+          continue;
+        }
+#endif
+      break;
+    }
+
+  if (ret < 0)
+    {
+      fscmdprogress('S');
+      fscmdprogress('E');
       nsh_error(vtbl, g_fmtcmdfailed, argv[0], "stat", NSH_ERRNO);
       ret = ERROR;
     }
@@ -1174,8 +1203,23 @@ int cmd_ls(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 
       nsh_output(vtbl, "%s:\n", fullpath);
 
-      ret = nsh_foreach_direntry(vtbl, "ls", fullpath, ls_handler,
-                                 (FAR void *)((uintptr_t)lsflags));
+      for (int tries = 0; ; tries++)
+        {
+          ret = nsh_foreach_direntry(vtbl, "ls", fullpath, ls_handler,
+                                     (FAR void *)((uintptr_t)lsflags));
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+          if (ret == -EAGAIN && tries < 7)
+            {
+              fscmdprogress('S');
+              fscmdprogress('B');
+              usleep(2000);
+              continue;
+            }
+#endif
+          break;
+        }
+
       if (ret == OK && (lsflags & LSFLAGS_RECURSIVE) != 0)
         {
           /* Then recurse to list each directory within the directory */

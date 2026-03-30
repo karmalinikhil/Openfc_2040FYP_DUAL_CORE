@@ -38,6 +38,13 @@
 
 #include "inode/inode.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define filesprogress(c) arm_lowputc((char)(c))
+#else
+#  define filesprogress(c)
+#endif
+
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
@@ -267,11 +274,13 @@ int files_duplist(FAR struct filelist *plist, FAR struct filelist *clist)
   int i;
   int j;
 
+  filesprogress('u');
   ret = _files_semtake(plist);
   if (ret < 0)
     {
       /* Probably canceled */
 
+      filesprogress('U');
       return ret;
     }
 
@@ -301,23 +310,74 @@ int files_duplist(FAR struct filelist *plist, FAR struct filelist *clist)
               continue;
             }
 
+          if (i == 0 && j == 0)
+            {
+              filesprogress('0');
+            }
+          else if (i == 0 && j == 1)
+            {
+              filesprogress('1');
+            }
+          else if (i == 0 && j == 2)
+            {
+              filesprogress('2');
+            }
+          else
+            {
+              filesprogress('3');
+            }
+
           ret = files_extend(clist, i + 1);
           if (ret < 0)
             {
+              filesprogress('E');
               goto out;
             }
 
           /* Yes... duplicate it for the child */
 
+          filesprogress('d');
+#ifdef CONFIG_ARCH_CHIP_RP2040
+          if (i == 0 && j < 3)
+            {
+              /* RP2040 SMP bring-up: stdio inheritance is currently blocked
+               * by the duplicated driver reopen path in file_dup2(). For
+               * the inherited stdio slots, clone the file structure directly
+               * without taking an inode reference so task creation can
+               * continue with the already-open UART-backed descriptors.
+               *
+               * NOTE: This is a bring-up workaround.  inode_addref() can
+               * stall in this window on RP2040 SMP, causing regression at
+               * marker sequence ...u0d.
+               */
+
+              filesprogress('B');
+              clist->fl_files[i][j].f_oflags = filep->f_oflags;
+              filesprogress('C');
+              clist->fl_files[i][j].f_pos    = filep->f_pos;
+              filesprogress('F');
+              clist->fl_files[i][j].f_inode  = filep->f_inode;
+              filesprogress('G');
+              clist->fl_files[i][j].f_priv   = filep->f_priv;
+              filesprogress('W');
+              filesprogress('a');
+            }
+          else
+#endif
+            {
           ret = file_dup2(filep, &clist->fl_files[i][j]);
           if (ret < 0)
             {
+              filesprogress('D');
               goto out;
             }
+            }
+          filesprogress('p');
         }
     }
 
 out:
+  filesprogress('v');
   _files_semgive(plist);
   return ret;
 }

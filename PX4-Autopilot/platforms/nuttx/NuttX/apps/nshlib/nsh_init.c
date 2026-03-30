@@ -31,6 +31,13 @@
 
 #include "nsh.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define nshiprogress(c) arm_lowputc((char)(c))
+#else
+#  define nshiprogress(c)
+#endif
+
 /****************************************************************************
  * Private Data
  ****************************************************************************/
@@ -80,11 +87,23 @@ void nsh_initialize(void)
 
   /* Mount the /etc filesystem */
 
+  nshiprogress('r');
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* RP2040 SMP bring-up: ROMFS /etc mount currently blocks here.
+   * Skip it temporarily to allow NSH/task bring-up to continue.
+   */
+#else
   (void)nsh_romfsetc();
+#endif
+  nshiprogress('s');
 
 #ifdef CONFIG_NSH_ARCHINIT
   /* Perform architecture-specific initialization (if configured) */
 
+  nshiprogress('b');
+#ifndef CONFIG_ARCH_CHIP_RP2040
   boardctl(BOARDIOC_INIT, 0);
+#endif
+  nshiprogress('d');
 #endif
 }

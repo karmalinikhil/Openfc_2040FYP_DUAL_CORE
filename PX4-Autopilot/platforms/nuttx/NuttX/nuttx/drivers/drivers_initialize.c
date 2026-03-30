@@ -57,10 +57,18 @@ void drivers_initialize(void)
 {
   /* Register devices */
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* Defer RP2040 syslog init until after sched_unlock() in nx_start. */
+#else
   syslog_initialize();
+#endif
 
 #if defined(CONFIG_DEV_NULL)
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* Defer RP2040 /dev/null registration until after sched_unlock(). */
+#else
   devnull_register();   /* Standard /dev/null */
+#endif
 #endif
 
 #if defined(CONFIG_DEV_RANDOM)

@@ -31,6 +31,13 @@
 
 #include "inode/inode.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define dupprogress(c) arm_lowputc((char)(c))
+#else
+#  define dupprogress(c)
+#endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -63,6 +70,8 @@ int file_dup2(FAR struct file *filep1, FAR struct file *filep2)
       return -EBADF;
     }
 
+  dupprogress('f');
+
   if (filep1 == filep2)
     {
       return OK;
@@ -71,9 +80,11 @@ int file_dup2(FAR struct file *filep1, FAR struct file *filep2)
   /* Increment the reference count on the contained inode */
 
   inode = filep1->f_inode;
+  dupprogress('g');
   ret   = inode_addref(inode);
   if (ret < 0)
     {
+      dupprogress('G');
       return ret;
     }
 
@@ -109,6 +120,7 @@ int file_dup2(FAR struct file *filep1, FAR struct file *filep2)
 
           if (inode->u.i_ops->open)
             {
+              dupprogress('h');
               ret = inode->u.i_ops->open(&temp);
             }
         }
@@ -117,6 +129,7 @@ int file_dup2(FAR struct file *filep1, FAR struct file *filep2)
 
       if (ret < 0)
         {
+          dupprogress('H');
           inode_release(inode);
           return ret;
         }
@@ -131,6 +144,8 @@ int file_dup2(FAR struct file *filep1, FAR struct file *filep2)
 
   /* Return the file structure */
 
+  dupprogress('i');
   memcpy(filep2, &temp, sizeof(temp));
+  dupprogress('j');
   return OK;
 }

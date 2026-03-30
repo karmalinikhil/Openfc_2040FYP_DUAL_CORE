@@ -36,6 +36,13 @@
 #include "sched/sched.h"
 #include "semaphore/semaphore.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define semtryprogress(c) arm_lowputc((char)(c))
+#else
+#  define semtryprogress(c)
+#endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/

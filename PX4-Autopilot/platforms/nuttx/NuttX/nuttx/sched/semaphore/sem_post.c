@@ -34,6 +34,13 @@
 #include "sched/sched.h"
 #include "semaphore/semaphore.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define sempostprogress(c)  /* Temporarily disabled to isolate RX tracing */
+#else
+#  define sempostprogress(c)
+#endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -77,12 +84,15 @@ int nxsem_post(FAR sem_t *sem)
 
   if (sem != NULL)
     {
+      sempostprogress('P');
+
       /* The following operations must be performed with interrupts
        * disabled because sem_post() may be called from an interrupt
        * handler.
        */
 
       flags = enter_critical_section();
+      sempostprogress('Q');
 
       /* Check the maximum allowable value */
 
@@ -110,7 +120,9 @@ int nxsem_post(FAR sem_t *sem)
        */
 
       nxsem_release_holder(sem);
+      sempostprogress('R');
       sem->semcount++;
+      sempostprogress('S');
 
 #ifdef CONFIG_PRIORITY_INHERITANCE
       /* Don't let any unblocked tasks run until we complete any priority
@@ -122,6 +134,7 @@ int nxsem_post(FAR sem_t *sem)
        */
 
       sched_lock();
+      sempostprogress('T');
 #endif
       /* If the result of semaphore unlock is non-positive, then
        * there must be some task waiting for the semaphore.
@@ -129,6 +142,7 @@ int nxsem_post(FAR sem_t *sem)
 
       if (sem->semcount <= 0)
         {
+          sempostprogress('U');
           /* Check if there are any tasks in the waiting for semaphore
            * task list that are waiting for this semaphore. This is a
            * prioritized list so the first one we encounter is the one
@@ -146,6 +160,7 @@ int nxsem_post(FAR sem_t *sem)
                */
 
               nxsem_add_holder_tcb(stcb, sem);
+              sempostprogress('V');
 
               /* Stop the watchdog timer */
 
@@ -158,6 +173,7 @@ int nxsem_post(FAR sem_t *sem)
               /* Restart the waiting task. */
 
               up_unblock_task(stcb);
+              sempostprogress('W');
             }
 #if 0 /* REVISIT:  This can fire on IOB throttle semaphore */
           else
@@ -176,13 +192,16 @@ int nxsem_post(FAR sem_t *sem)
 
 #ifdef CONFIG_PRIORITY_INHERITANCE
       nxsem_restore_baseprio(stcb, sem);
+      sempostprogress('X');
       sched_unlock();
+      sempostprogress('Y');
 #endif
       ret = OK;
 
       /* Interrupts may now be enabled. */
 
       leave_critical_section(flags);
+      sempostprogress('Z');
     }
 
   return ret;

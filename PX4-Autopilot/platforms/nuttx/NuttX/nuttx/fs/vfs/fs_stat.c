@@ -35,6 +35,13 @@
 #include <nuttx/mtd/mtd.h>
 #include <nuttx/fs/ioctl.h>
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define statprogress(c) arm_lowputc((char)(c))
+#else
+#  define statprogress(c)
+#endif
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -91,6 +98,8 @@ static int stat_recursive(FAR const char *path,
   ret = inode_find(&desc);
   if (ret < 0)
     {
+      statprogress('Q');
+      statprogress('E');
       /* This name does not refer to an inode in the pseudo file system and
        * there is no mountpoint that includes in this path.
        */

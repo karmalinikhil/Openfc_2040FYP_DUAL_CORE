@@ -237,6 +237,7 @@ void print_load_buffer(char *buffer, int buffer_length, print_load_callback_f cb
 
 		switch (tcb_task_state) {
 		case TSTATE_TASK_PENDING:
+		case TSTATE_TASK_ASSIGNED:
 		case TSTATE_TASK_READYTORUN:
 		case TSTATE_TASK_RUNNING:
 			print_state->running_count++;

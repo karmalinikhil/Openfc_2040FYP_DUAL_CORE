@@ -34,6 +34,13 @@
 
 #ifdef CONFIG_PRIORITY_INHERITANCE
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define holderprogress(c)  /* Temporarily disabled to isolate RX tracing */
+#else
+#  define holderprogress(c)
+#endif
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -949,6 +956,8 @@ void nxsem_release_holder(FAR sem_t *sem)
   FAR struct semholder_s *candidate = NULL;
   unsigned int total = 0;
 
+  holderprogress('h');
+
   /* Find the container for this holder */
 
 #if CONFIG_SEM_PREALLOCHOLDERS > 0
@@ -961,15 +970,18 @@ void nxsem_release_holder(FAR sem_t *sem)
   for (i = 0; i < 2; i++)
 #endif
     {
+      holderprogress('i');
 #if CONFIG_SEM_PREALLOCHOLDERS == 0
       pholder = &sem->holder[i];
       if (pholder->htcb == NULL)
         {
+          holderprogress('j');
           continue;
         }
 #endif
 
       DEBUGASSERT(pholder->counts > 0);
+      holderprogress('k');
 
       if (pholder->htcb == rtcb)
         {
@@ -977,29 +989,37 @@ void nxsem_release_holder(FAR sem_t *sem)
            * later in nxsem_restore_baseprio.
            */
 
+          holderprogress('l');
           pholder->counts--;
+          holderprogress('m');
           return;
         }
 
       total++;
+      holderprogress('n');
       candidate = pholder;
     }
 
   /* The current task is not a holder */
 
+  holderprogress('o');
   if (total == 1)
     {
       /* If the semaphore has only one holder, we can decrement the counts
        * simply.
        */
 
+      holderprogress('p');
       candidate->counts--;
+      holderprogress('q');
       return;
     }
 
   /* TODO:
    *   How do we choose the holder to decrement it's counts?
    */
+
+  holderprogress('r');
 }
 
 /****************************************************************************

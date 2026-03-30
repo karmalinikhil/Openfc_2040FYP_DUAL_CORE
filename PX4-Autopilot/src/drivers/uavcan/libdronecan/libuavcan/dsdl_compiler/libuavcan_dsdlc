@@ -14,7 +14,9 @@ import os, sys, logging, argparse
 # totally dependency-free, except for the Python interpreter itself.
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCAL_PYUAVCAN_DIR = os.path.join(SCRIPT_DIR, 'pydronecan')
-RUNNING_FROM_SRC_DIR = os.path.isdir(LOCAL_PYUAVCAN_DIR)
+LOCAL_DRONECAN_DSDL_DIR = os.path.join(LOCAL_PYUAVCAN_DIR, 'dronecan', 'dsdl')
+RUNNING_FROM_SRC_DIR = os.path.isdir(LOCAL_PYUAVCAN_DIR) and \
+                       os.path.isdir(LOCAL_DRONECAN_DSDL_DIR)
 if RUNNING_FROM_SRC_DIR:
     #print('Running from the source directory')
     sys.path.insert(0, SCRIPT_DIR)

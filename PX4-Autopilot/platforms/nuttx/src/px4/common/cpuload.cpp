@@ -215,6 +215,41 @@ void sched_note_resume(FAR struct tcb_s *tcb)
 #endif
 }
 
+#ifdef CONFIG_SMP
+void sched_note_cpu_start(FAR struct tcb_s *tcb, int cpu)
+{
+	(void)tcb;
+	(void)cpu;
+}
+
+void sched_note_cpu_started(FAR struct tcb_s *tcb)
+{
+	(void)tcb;
+}
+
+void sched_note_cpu_pause(FAR struct tcb_s *tcb, int cpu)
+{
+	(void)tcb;
+	(void)cpu;
+}
+
+void sched_note_cpu_paused(FAR struct tcb_s *tcb)
+{
+	(void)tcb;
+}
+
+void sched_note_cpu_resume(FAR struct tcb_s *tcb, int cpu)
+{
+	(void)tcb;
+	(void)cpu;
+}
+
+void sched_note_cpu_resumed(FAR struct tcb_s *tcb)
+{
+	(void)tcb;
+}
+#endif
+
 #ifdef CONFIG_SEGGER_SYSVIEW
 
 #ifdef CONFIG_SCHED_INSTRUMENTATION_IRQHANDLER

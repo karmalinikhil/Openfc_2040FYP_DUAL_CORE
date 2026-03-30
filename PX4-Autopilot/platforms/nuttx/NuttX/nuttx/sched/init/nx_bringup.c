@@ -27,6 +27,7 @@
 #include <sched.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 #include <assert.h>
 #include <debug.h>
 
@@ -45,6 +46,19 @@
 #endif
 # include "wqueue/wqueue.h"
 # include "init/init.h"
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+#ifdef CONFIG_INIT_ENTRY
+static int nx_rp2040_init_entry(int argc, FAR char **argv);
+#endif
+#endif
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define bringupprogress(c) arm_lowputc((char)(c))
+#else
+#  define bringupprogress(c)
+#endif
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -207,6 +221,17 @@ static inline void nx_workqueues(void)
 
 #endif /* CONFIG_SCHED_WORKQUEUE */
 
+#if defined(CONFIG_ARCH_CHIP_RP2040) && defined(CONFIG_INIT_ENTRY)
+static int nx_rp2040_init_entry(int argc, FAR char **argv)
+{
+  bringupprogress('R');
+
+  bringupprogress('I');
+  bringupprogress('N');
+  return ((main_t)CONFIG_INIT_ENTRYPOINT)(argc, argv);
+}
+#endif
+
 /****************************************************************************
  * Name: nx_start_application
  *
@@ -224,6 +249,8 @@ static inline void nx_workqueues(void)
 
 static inline void nx_start_application(void)
 {
+  bringupprogress('Y');
+
 #ifdef CONFIG_INIT_ARGS
   FAR char *const argv[] =
   {
@@ -233,9 +260,17 @@ static inline void nx_start_application(void)
 #else
   FAR char *const *argv = NULL;
 #endif
+  int initprio = CONFIG_INIT_PRIORITY;
   int ret;
 #ifdef CONFIG_INIT_FILE
   posix_spawnattr_t attr;
+#endif
+
+#if defined(CONFIG_ARCH_CHIP_RP2040) && defined(CONFIG_SCHED_HPWORK)
+  if (initprio <= CONFIG_SCHED_HPWORKPRIORITY)
+    {
+      initprio = CONFIG_SCHED_HPWORKPRIORITY + 1;
+    }
 #endif
 
 #ifdef CONFIG_BOARD_LATE_INITIALIZE
@@ -258,14 +293,30 @@ static inline void nx_start_application(void)
 
 #ifdef CONFIG_BUILD_PROTECTED
   DEBUGASSERT(USERSPACE->us_entrypoint != NULL);
-  ret = nxtask_create(CONFIG_INIT_ENTRYNAME, CONFIG_INIT_PRIORITY,
+  ret = nxtask_create(CONFIG_INIT_ENTRYNAME, initprio,
                       CONFIG_INIT_STACKSIZE,
                       USERSPACE->us_entrypoint, argv);
 #else
-  ret = nxtask_create(CONFIG_INIT_ENTRYNAME, CONFIG_INIT_PRIORITY,
+#if defined(CONFIG_ARCH_CHIP_RP2040)
+  bringupprogress('A');
+  ret = nxtask_create(CONFIG_INIT_ENTRYNAME, initprio,
+                      CONFIG_INIT_STACKSIZE,
+                      (main_t)nx_rp2040_init_entry, argv);
+  bringupprogress('B');
+#else
+  ret = nxtask_create(CONFIG_INIT_ENTRYNAME, initprio,
                       CONFIG_INIT_STACKSIZE,
                       (main_t)CONFIG_INIT_ENTRYPOINT, argv);
 #endif
+#endif
+  if (ret > 0)
+    {
+      bringupprogress('y');
+    }
+  else
+    {
+      bringupprogress('f');
+    }
   DEBUGASSERT(ret > 0);
 
 #elif defined(CONFIG_INIT_FILE)
@@ -288,12 +339,20 @@ static inline void nx_start_application(void)
 
   posix_spawnattr_init(&attr);
 
-  attr.priority  = CONFIG_INIT_PRIORITY;
+  attr.priority  = initprio;
 #ifndef CONFIG_ARCH_ADDRENV
   attr.stacksize = CONFIG_INIT_STACKSIZE;
 #endif
   ret = exec_spawn(CONFIG_INIT_FILEPATH, argv, NULL,
                    CONFIG_INIT_SYMTAB, CONFIG_INIT_NEXPORTS, &attr);
+  if (ret >= 0)
+    {
+      bringupprogress('y');
+    }
+  else
+    {
+      bringupprogress('f');
+    }
   DEBUGASSERT(ret >= 0);
 #endif
 
@@ -319,9 +378,12 @@ static inline void nx_start_application(void)
 #ifdef CONFIG_BOARD_LATE_INITIALIZE
 static int nx_start_task(int argc, FAR char **argv)
 {
+  bringupprogress('G');
+
   /* Do the board/application initialization and exit */
 
   nx_start_application();
+  bringupprogress('H');
   return OK;
 }
 #endif
@@ -343,7 +405,7 @@ static int nx_start_task(int argc, FAR char **argv)
  *
  ****************************************************************************/
 
-static inline void nx_create_initthread(void)
+void nx_create_initthread(void)
 {
 #ifdef CONFIG_BOARD_LATE_INITIALIZE
   int pid;
@@ -352,15 +414,26 @@ static inline void nx_create_initthread(void)
    * execution.
    */
 
+  bringupprogress('I');
   pid = kthread_create("AppBringUp", CONFIG_BOARD_INITTHREAD_PRIORITY,
                       CONFIG_BOARD_INITTHREAD_STACKSIZE,
                       (main_t)nx_start_task, (FAR char * const *)NULL);
+  if (pid > 0)
+    {
+      bringupprogress('J');
+    }
+  else
+    {
+      bringupprogress('j');
+    }
   DEBUGASSERT(pid > 0);
   UNUSED(pid);
 #else
   /* Do the board/application initialization on this thread of execution. */
 
+  bringupprogress('K');
   nx_start_application();
+  bringupprogress('L');
 #endif
 }
 
@@ -432,6 +505,12 @@ int nx_bringup(void)
 
   nx_pgworker();
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* RP2040 path: defer init-thread creation to nx_start() after
+   * sched_unlock() and late stdio setup.
+   * Keep workqueues down in this diagnostic branch.
+   */
+#else
   /* Start the worker thread that will serve as the device driver "bottom-
    * half" and will perform misc garbage clean-up.
    */
@@ -444,6 +523,7 @@ int nx_bringup(void)
    */
 
   nx_create_initthread();
+#endif
 
 #if !defined(CONFIG_DISABLE_ENVIRON) && (defined(CONFIG_PATH_INITIAL) || \
      defined(CONFIG_LDPATH_INITIAL))

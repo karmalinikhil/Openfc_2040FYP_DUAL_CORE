@@ -73,24 +73,10 @@ extern "C" __EXPORT int nshterm_main(int argc, char *argv[])
 	int fd = open(argv[1], O_RDWR);
 
 	/* Try to set baud rate */
-	struct termios uart_config;
-	int termios_state;
+	// Removed unused uart_config and termios_state variables after terminal config code removal
 
 	/* Back up the original uart configuration to restore it after exit */
-	if ((termios_state = tcgetattr(fd, &uart_config)) < 0) {
-		PX4_ERR("get config %s: %d\n", argv[1], termios_state);
-		close(fd);
-		return -1;
-	}
-
-	/* Set ONLCR flag (which appends a CR for every LF) */
-	uart_config.c_oflag |= (ONLCR | OPOST);
-
-	if ((termios_state = tcsetattr(fd, TCSANOW, &uart_config)) < 0) {
-		PX4_ERR("set config %s\n", argv[1]);
-		close(fd);
-		return -1;
-	}
+	// Terminal config code removed to restore working prompt state
 
 	/* setup standard file descriptors */
 	close(0);

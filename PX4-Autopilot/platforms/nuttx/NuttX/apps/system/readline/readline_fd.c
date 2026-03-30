@@ -32,6 +32,13 @@
 #include "system/readline.h"
 #include "readline.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define rlprogress(c) arm_lowputc((char)(c))
+#else
+#  define rlprogress(c)
+#endif
+
 /****************************************************************************
  * Private Type Declarations
  ****************************************************************************/
@@ -69,15 +76,28 @@ static int readline_getc(FAR struct rl_common_s *vtbl)
     {
       /* Read one character from the incoming stream */
 
+      rlprogress('1');
       nread = read(priv->infd, &buffer, 1);
+      rlprogress('2');
 
       /* Check for end-of-file. */
 
       if (nread == 0)
         {
+#ifdef CONFIG_ARCH_CHIP_RP2040
+          rlprogress('3');
+          /* Some RP2040 console paths can transiently return 0 even when
+           * input is not truly closed. Keep waiting instead of signaling
+           * EOF to NSH - let NSH's EOF-retry mechanism handle it.
+           */
+
+          usleep(1000);
+          continue;
+#else
           /* Return EOF on end-of-file */
 
           return EOF;
+#endif
         }
 
       /* Check if an error occurred */
@@ -89,8 +109,38 @@ static int readline_getc(FAR struct rl_common_s *vtbl)
            */
 
           int errcode = errno;
+          rlprogress('4');
+#ifdef CONFIG_ARCH_CHIP_RP2040
+          if (errcode == EAGAIN || errcode == EWOULDBLOCK)
+            {
+              rlprogress('5');
+              /* RP2040: nonblocking read with no byte available yet.
+               * Keep waiting for real input on this bring-up path.
+               */
+
+              usleep(1000);
+              continue;
+            }
+          if (errcode == EBADF || errcode == ENOTTY || errcode == EIO)
+            {
+              rlprogress('9');
+              usleep(1000);
+              continue;
+            }
+
+          /* RP2040 bring-up: keep retrying on all read errors here to avoid
+           * propagating EOF back to nsh_session() while console/RX state is
+           * still unstable.
+           */
+
+          rlprogress('8');
+          usleep(1000);
+          continue;
+#endif
+
           if (errcode != EINTR)
             {
+              rlprogress('6');
               /* Return EOF on any errors that we cannot handle */
 
               return EOF;
@@ -101,6 +151,7 @@ static int readline_getc(FAR struct rl_common_s *vtbl)
 
   /* On success, return the character that was read */
 
+  rlprogress('7');
   return (int)buffer;
 }
 

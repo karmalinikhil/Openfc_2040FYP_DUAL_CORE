@@ -61,11 +61,7 @@ const uintptr_t g_idle_topstack = IDLE_STACK;
  *
  ****************************************************************************/
 
-#if defined(CONFIG_DEBUG_FEATURES) && defined(HAVE_SERIAL_CONSOLE)
-#  define showprogress(c) arm_lowputc((uint32_t)c)
-#else
-#  define showprogress(c)
-#endif
+#define showprogress(c) arm_lowputc((uint32_t)c)
 
 /****************************************************************************
  * Public Functions
@@ -165,8 +161,7 @@ void __start(void)
 
   /* Then start NuttX */
 
-  showprogress('\r');
-  showprogress('\n');
+  showprogress('Z');
 
   nx_start();
 

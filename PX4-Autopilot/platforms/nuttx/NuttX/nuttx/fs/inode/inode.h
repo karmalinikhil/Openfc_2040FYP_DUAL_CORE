@@ -157,6 +157,17 @@ void inode_initialize(void);
 int inode_semtake(void);
 
 /****************************************************************************
+ * Name: inode_semtrytake
+ *
+ * Description:
+ *   Attempt to get exclusive access to the in-memory inode tree without
+ *   blocking.
+ *
+ ****************************************************************************/
+
+int inode_semtrytake(void);
+
+/****************************************************************************
  * Name: inode_semgive
  *
  * Description:

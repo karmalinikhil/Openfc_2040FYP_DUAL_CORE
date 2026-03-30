@@ -27,7 +27,33 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <termios.h>
 #include <assert.h>
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define nshprogress(c) arm_lowputc((char)(c))
+
+static bool nsh_rp2040_fd_usable_input(int fd)
+{
+  int flags = fcntl(fd, F_GETFL, 0);
+
+  /* A failed F_GETFL means the descriptor is not usable here.
+   * Treating that as readable causes endless EBADF/EIO retry loops.
+   */
+  if (flags < 0 || (flags & O_ACCMODE) == O_WRONLY)
+    {
+      return false;
+    }
+
+  return true;
+}
+#else
+#  define nshprogress(c)
+#endif
 
 #ifdef CONFIG_NSH_CLE
 #  include "system/cle.h"
@@ -70,12 +96,115 @@ int nsh_session(FAR struct console_stdio_s *pstate,
 {
   FAR struct nsh_vtbl_s *vtbl;
   int ret = EXIT_FAILURE;
+  int infd;
+  int flags;
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  int eof_retry_count = 0;  /* Counter to prevent infinite retry loops */
+#endif
+#ifndef CONFIG_ARCH_CHIP_RP2040
+  struct termios tio;
+#endif
 
   DEBUGASSERT(pstate);
   vtbl = &pstate->cn_vtbl;
+  nshprogress('a');
+
+  /* Prefer stdin (fd0), but if it is invalid or write-only, fall back to
+   * whichever console stream fd is readable.
+   */
+
+  infd = INFD(pstate);
+  nshprogress('b');
+  flags = fcntl(infd, F_GETFL, 0);
+  nshprogress('B');
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  if (flags < 0 || (flags & O_ACCMODE) == O_WRONLY ||
+      !nsh_rp2040_fd_usable_input(infd))
+#else
+  if (flags < 0 || (flags & O_ACCMODE) == O_WRONLY ||
+      tcgetattr(infd, &tio) < 0)
+#endif
+    {
+      nshprogress('c');
+      int outfd = OUTFD(pstate);
+      nshprogress('C');
+
+      flags = fcntl(outfd, F_GETFL, 0);
+      nshprogress('D');
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      if (nsh_rp2040_fd_usable_input(outfd))
+#else
+      if (flags >= 0 && (flags & O_ACCMODE) != O_WRONLY &&
+          tcgetattr(outfd, &tio) == 0)
+#endif
+        {
+          infd = outfd;
+          nshprogress('n');
+        }
+      else
+        {
+          int errfd = ERRFD(pstate);
+          nshprogress('E');
+
+          flags = fcntl(errfd, F_GETFL, 0);
+          nshprogress('F');
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      if (nsh_rp2040_fd_usable_input(errfd))
+#else
+          if (flags >= 0 && (flags & O_ACCMODE) != O_WRONLY &&
+              tcgetattr(errfd, &tio) == 0)
+#endif
+            {
+              infd = errfd;
+              nshprogress('N');
+            }
+        }
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      /* Avoid wide inherited-fd scans on RP2040 SMP debug builds.
+       * They create long !? floods and delay prompt/read cycles while not
+       * improving recovery on this branch.
+       */
+#endif
+    }
+
+  nshprogress('f');
+
+  /* readline_fd treats any non-EINTR read error as EOF. Ensure the selected
+   * input descriptor is in blocking mode so a temporary lack of data does not
+   * terminate the shell session.
+   */
+
+  flags = fcntl(infd, F_GETFL, 0);
+  nshprogress('g');
+  if (flags >= 0 && (flags & O_NONBLOCK) != 0)
+    {
+      nshprogress('G');
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      /* RP2040: this F_SETFL path has repeatedly stalled at marker G.
+       * Skip the nonblocking-clear operation here and continue into session
+       * flow so we can progress to prompt/read handling.
+       */
+      nshprogress('Q');
+#else
+      if (fcntl(infd, F_SETFL, flags & ~O_NONBLOCK) >= 0)
+        {
+          nshprogress('w');
+        }
+      else
+        {
+          nshprogress('W');
+        }
+#endif
+    }
+  else
+    {
+      nshprogress('H');
+    }
 
   if (login)
     {
+      nshprogress('i');
 #ifdef CONFIG_NSH_CONSOLE_LOGIN
       /* Login User and Password Check */
 
@@ -105,6 +234,7 @@ int nsh_session(FAR struct console_stdio_s *pstate,
 #endif
 
       fflush(pstate->cn_outstream);
+      nshprogress('g');
 
       /* Execute the login script */
 
@@ -178,8 +308,8 @@ int nsh_session(FAR struct console_stdio_s *pstate,
        * occurs. Either  will cause the session to terminate.
        */
 
-      ret = cle(pstate->cn_line, g_nshprompt, CONFIG_NSH_LINELEN,
-                INSTREAM(pstate), OUTSTREAM(pstate));
+      ret = cle_fd(pstate->cn_line, g_nshprompt, CONFIG_NSH_LINELEN,
+           infd, OUTFD(pstate));
       if (ret < 0)
         {
           fprintf(pstate->cn_errstream, g_fmtcmdfailed, "nsh_session",
@@ -189,18 +319,126 @@ int nsh_session(FAR struct console_stdio_s *pstate,
 #else
       /* Display the prompt string */
 
-      fputs(g_nshprompt, pstate->cn_outstream);
-      fflush(pstate->cn_outstream);
+      nshprogress('P');
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      write(OUTFD(pstate), "nsh> ", 5);
+#else
+      write(OUTFD(pstate), g_nshprompt, strlen(g_nshprompt));
+#endif
+      nshprogress('p');
 
       /* readline() normally returns the number of characters read, but
        * will return EOF on end of file or if an error occurs.  EOF
        * will cause the session to terminate.
        */
 
-      ret = readline(pstate->cn_line, CONFIG_NSH_LINELEN,
-                    INSTREAM(pstate), OUTSTREAM(pstate));
+      nshprogress('L');
+      ret = readline_fd(pstate->cn_line, CONFIG_NSH_LINELEN,
+        infd, OUTFD(pstate));
+      nshprogress('l');
+
+      if (ret > 0)
+        {
+          /* Command line bytes are available and we are about to hand off
+           * to parser/dispatcher.
+           */
+        }
+
       if (ret == EOF)
         {
+          nshprogress('E');
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+          {
+            int errcode = errno;
+            int cidx;
+            int candidates[6];
+            int candidate_count = 0;
+
+            /* On this RP2040 branch, stdin descriptors can be late/unstable.
+             * Do not terminate the shell on transient EOF-like conditions;
+             * keep probing for any usable input descriptor and retry.
+             * BUT: limit retries to prevent infinite loops.
+             */
+
+            eof_retry_count++;
+            if (eof_retry_count > 1000)
+              {
+                /* Keep session alive and back off instead of exiting on RP2040.
+                 * Exiting here causes the observed X8 loop without recovery.
+                 */
+                nshprogress('X');
+                eof_retry_count = 0;
+                usleep(50000);
+                continue;
+              }
+
+            if (errcode == 0 || errcode == EAGAIN || errcode == EWOULDBLOCK ||
+                errcode == EBADF || errcode == ENOTTY || errcode == EIO)
+              {
+                int found_fd = -1;
+
+                /* Probe only a bounded set of likely descriptors. */
+                candidates[candidate_count++] = infd;
+
+                if (INFD(pstate) != infd)
+                  {
+                    candidates[candidate_count++] = INFD(pstate);
+                  }
+
+                if (OUTFD(pstate) != infd && OUTFD(pstate) != INFD(pstate))
+                  {
+                    candidates[candidate_count++] = OUTFD(pstate);
+                  }
+
+                if (ERRFD(pstate) != infd && ERRFD(pstate) != INFD(pstate) &&
+                    ERRFD(pstate) != OUTFD(pstate))
+                  {
+                    candidates[candidate_count++] = ERRFD(pstate);
+                  }
+
+                if (0 != infd && 0 != INFD(pstate) && 0 != OUTFD(pstate) && 0 != ERRFD(pstate))
+                  {
+                    candidates[candidate_count++] = 0;
+                  }
+
+                for (cidx = 0; cidx < candidate_count; cidx++)
+                  {
+                    int probe = candidates[cidx];
+                    if (probe < 0)
+                      {
+                        continue;
+                      }
+
+                    if (nsh_rp2040_fd_usable_input(probe))
+                      {
+                        found_fd = probe;
+                        if (probe != infd)
+                          {
+                            infd = probe;
+                            nshprogress('R');
+                            eof_retry_count = 0;
+                          }
+
+                        break;
+                      }
+                  }
+
+                if (found_fd < 0)
+                  {
+                    usleep(20000);
+                  }
+                else
+                  {
+                    /* Even if fd found, add yield to prevent busy-loop */
+                    usleep(5000);
+                  }
+
+                continue;
+              }
+          }
+#endif
+
           /* NOTE: readline() does not set the errno variable, but
            * perhaps we will be lucky and it will still be valid.
            */

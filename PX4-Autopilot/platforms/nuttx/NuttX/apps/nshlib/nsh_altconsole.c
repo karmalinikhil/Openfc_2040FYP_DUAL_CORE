@@ -36,6 +36,13 @@
 
 #include "netutils/netinit.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define nshaprogress(c) arm_lowputc((char)(c))
+#else
+#  define nshaprogress(c)
+#endif
+
 #if defined(CONFIG_NSH_ALTCONDEV) && !defined(HAVE_USB_CONSOLE)
 
 /****************************************************************************
@@ -53,14 +60,51 @@
 static int nsh_clone_console(FAR struct console_stdio_s *pstate)
 {
   int fd;
+  int flags;
+
+  nshaprogress('e');
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* RP2040: re-opening /dev/ttyS0 for ALT stdout/stderr can block in this
+   * bring-up path. Reuse inherited stdio streams and only remap stdin in
+   * nsh_wait_inputdev().
+   */
+
+  pstate->cn_errfd = 2;
+  pstate->cn_outfd = 1;
+  pstate->cn_errstream = stderr;
+  pstate->cn_outstream = stdout;
+  nshaprogress('C');
+  return OK;
+#endif
 
   /* Open the alternative standard error device */
 
-  fd = open(CONFIG_NSH_ALTSTDERR, O_WRONLY);
+  fd = open(CONFIG_NSH_ALTSTDERR,
+#ifdef CONFIG_ARCH_CHIP_RP2040
+            O_RDWR
+#else
+            O_WRONLY
+#endif
+#ifdef CONFIG_ARCH_CHIP_RP2040
+            | O_NONBLOCK
+#endif
+           );
   if (fd < 0)
     {
+      nshaprogress('f');
       return -ENODEV;
     }
+
+  nshaprogress('E');
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  flags = fcntl(fd, F_GETFL, 0);
+  if (flags >= 0)
+    {
+      (void)fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+    }
+#endif
 
   /* Flush stderr: we only flush stderr if we opened the alternative one */
 
@@ -69,6 +113,7 @@ static int nsh_clone_console(FAR struct console_stdio_s *pstate)
   /* Associate the new opened file descriptor to stderr */
 
   dup2(fd, 2);
+  nshaprogress('2');
 
   /* Close the console device that we just opened */
 
@@ -79,11 +124,31 @@ static int nsh_clone_console(FAR struct console_stdio_s *pstate)
 
   /* Open the alternative standard output device */
 
-  fd = open(CONFIG_NSH_ALTSTDOUT, O_WRONLY);
+  fd = open(CONFIG_NSH_ALTSTDOUT,
+#ifdef CONFIG_ARCH_CHIP_RP2040
+            O_RDWR
+#else
+            O_WRONLY
+#endif
+#ifdef CONFIG_ARCH_CHIP_RP2040
+            | O_NONBLOCK
+#endif
+           );
   if (fd < 0)
     {
+      nshaprogress('g');
       return -ENODEV;
     }
+
+  nshaprogress('O');
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  flags = fcntl(fd, F_GETFL, 0);
+  if (flags >= 0)
+    {
+      (void)fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+    }
+#endif
 
   /* Flush stdout: we only flush stdout if we opened the alternative one */
 
@@ -92,6 +157,7 @@ static int nsh_clone_console(FAR struct console_stdio_s *pstate)
   /* Associate the new opened file descriptor to stdout */
 
   dup2(fd, 1);
+  nshaprogress('1');
 
   /* Close the console device that we just opened */
 
@@ -106,9 +172,12 @@ static int nsh_clone_console(FAR struct console_stdio_s *pstate)
   pstate->cn_errstream = fdopen(pstate->cn_errfd, "a");
   if (!pstate->cn_errstream)
     {
+      nshaprogress('h');
       free(pstate);
       return -EIO;
     }
+
+  nshaprogress('H');
 
   /* Setup the stdout */
 
@@ -116,9 +185,12 @@ static int nsh_clone_console(FAR struct console_stdio_s *pstate)
   pstate->cn_outstream = fdopen(pstate->cn_outfd, "a");
   if (!pstate->cn_outstream)
     {
+      nshaprogress('i');
       free(pstate);
       return -EIO;
     }
+
+  nshaprogress('C');
 
   return OK;
 }
@@ -135,6 +207,60 @@ static int nsh_wait_inputdev(FAR struct console_stdio_s *pstate,
                              FAR const char *msg)
 {
   int fd;
+  int flags;
+  nshaprogress('w');
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* RP2040: use a deterministic stdin rebinding path on ttyS0.
+   * Probe with O_NONBLOCK to avoid open-time stalls, then restore blocking
+   * mode before handing the stream to readline().
+   */
+
+  fd = open(CONFIG_NSH_ALTSTDIN, O_RDONLY | O_NONBLOCK);
+  if (fd >= 0)
+    {
+      flags = fcntl(fd, F_GETFL, 0);
+      if (flags >= 0)
+        {
+          (void)fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+        }
+
+      if (fd != 0)
+        {
+          if (dup2(fd, 0) < 0)
+            {
+              if (fd > 2)
+                {
+                  close(fd);
+                }
+
+              return -EIO;
+            }
+
+          if (fd > 2)
+            {
+              close(fd);
+            }
+        }
+
+      pstate->cn_confd = 0;
+      pstate->cn_constream = fdopen(pstate->cn_confd, "r");
+      if (!pstate->cn_constream)
+        {
+          return -EIO;
+        }
+
+      clearerr(pstate->cn_constream);
+    }
+  else
+    {
+      nshaprogress('n');
+      return -ENODEV;
+    }
+
+  nshaprogress('W');
+  return OK;
+#endif
 
   /* Don't start the NSH console until the input device is ready.  Chances
    * are, we get here with no functional stdin. For example a USB keyboard
@@ -148,9 +274,14 @@ static int nsh_wait_inputdev(FAR struct console_stdio_s *pstate,
     {
       /* Try to open the alternative stdin device */
 
-      fd = open(CONFIG_NSH_ALTSTDIN, O_RDWR);
+      fd = open(CONFIG_NSH_ALTSTDIN, O_RDWR
+    #ifdef CONFIG_ARCH_CHIP_RP2040
+            | O_NONBLOCK
+    #endif
+           );
       if (fd < 0)
         {
+          nshaprogress('n');
 #ifdef CONFIG_DEBUG_FEATURES
           int errcode = errno;
 
@@ -180,6 +311,22 @@ static int nsh_wait_inputdev(FAR struct console_stdio_s *pstate,
           /* Sleep a bit and try again */
 
           sleep(2);
+        }
+      else
+        {
+          nshaprogress('W');
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+          /* Probe with O_NONBLOCK to avoid open-time stalls, then restore
+           * blocking behavior so readline() does not spin on EOF/EAGAIN.
+           */
+
+          flags = fcntl(fd, F_GETFL, 0);
+          if (flags >= 0)
+            {
+              (void)fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+            }
+#endif
         }
     }
   while (fd < 0);
@@ -245,6 +392,7 @@ static int nsh_wait_inputdev(FAR struct console_stdio_s *pstate,
 
 int nsh_consolemain(int argc, FAR char *argv[])
 {
+  nshaprogress('5');
   FAR struct console_stdio_s *pstate = nsh_newconsole(true);
   FAR const char *msg;
   int ret;
@@ -262,8 +410,11 @@ int nsh_consolemain(int argc, FAR char *argv[])
    */
 
 #ifdef CONFIG_NSH_ROMFSETC
+#ifndef CONFIG_ARCH_CHIP_RP2040
   nsh_initscript(&pstate->cn_vtbl);
 #endif
+#endif
+  nshaprogress('6');
 
 #ifdef CONFIG_NSH_NETINIT
   /* Bring up the network */
@@ -279,12 +430,15 @@ int nsh_consolemain(int argc, FAR char *argv[])
 
   /* First map stderr and stdout to alternative devices */
 
+  nshaprogress('c');
   ret = nsh_clone_console(pstate);
 
   if (ret < 0)
     {
+      nshaprogress('f');
       return ret;
     }
+  nshaprogress('C');
 
   /* Now loop, executing creating a session for each USB connection */
 
@@ -296,6 +450,7 @@ int nsh_consolemain(int argc, FAR char *argv[])
        */
 
       ret = nsh_wait_inputdev(pstate, msg);
+      nshaprogress('I');
 
       DEBUGASSERT(ret == OK);
       UNUSED(ret);
@@ -303,6 +458,7 @@ int nsh_consolemain(int argc, FAR char *argv[])
       /* Execute the session */
 
       nsh_session(pstate, true, argc, argv);
+      nshaprogress('S');
 
       /* We lost the connection.  Wait for the keyboard to
        * be re-connected.

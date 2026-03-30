@@ -37,6 +37,13 @@
 #include <nuttx/version.h>
 #include "nshlib/nshlib.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define parseprogress(c) arm_lowputc((char)(c))
+#else
+#  define parseprogress(c)
+#endif
+
 #include "nsh.h"
 #include "nsh_console.h"
 

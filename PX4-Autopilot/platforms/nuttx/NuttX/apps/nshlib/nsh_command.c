@@ -38,6 +38,13 @@
 #include "nsh.h"
 #include "nsh_console.h"
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+extern void arm_lowputc(char ch);
+#  define cmdprogress(c) arm_lowputc((char)(c))
+#else
+#  define cmdprogress(c)
+#endif
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/

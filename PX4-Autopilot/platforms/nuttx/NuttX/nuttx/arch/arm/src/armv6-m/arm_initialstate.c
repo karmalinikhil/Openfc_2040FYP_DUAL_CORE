@@ -39,6 +39,34 @@
  ****************************************************************************/
 
 /****************************************************************************
+ * Name: arm_initialize_stack
+ *
+ * Description:
+ *   Initialize PSP/MSP for the current CPU when per-CPU interrupt stacks
+ *   are enabled in SMP mode.
+ *
+ ****************************************************************************/
+
+#if defined(CONFIG_SMP) && CONFIG_ARCH_INTERRUPTSTACK > 3
+extern const uint32_t g_cpu_intstack_top[CONFIG_SMP_NCPUS];
+
+void arm_initialize_stack(void)
+{
+  uintptr_t psp;
+  uintptr_t msp;
+
+  __asm__ __volatile__("mrs %0, msp\n" : "=r" (psp));
+  __asm__ __volatile__("msr psp, %0\n" :: "r" (psp) : "memory");
+
+  setcontrol(getcontrol() | CONTROL_SPSEL);
+  __asm__ __volatile__("isb\n" ::: "memory");
+
+  msp = g_cpu_intstack_top[up_cpu_index()];
+  __asm__ __volatile__("msr msp, %0\n" :: "r" (msp) : "memory");
+}
+#endif
+
+/****************************************************************************
  * Name: up_initial_state
  *
  * Description:
