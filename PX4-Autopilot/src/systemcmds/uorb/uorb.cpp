@@ -35,6 +35,7 @@
 
 #include <uORB/uORB.h>
 
+#include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/log.h>
 #include <px4_platform_common/module.h>
 
@@ -56,6 +57,13 @@ int uorb_main(int argc, char *argv[])
 		return uorb_status();
 
 	} else if (!strcmp(argv[1], "top")) {
+	#if defined(CONFIG_ARCH_CHIP_RP2040)
+		/* Keep RP2040 dual-core NSH sessions responsive: force one-shot output
+		 * for `uorb top` during bring-up, regardless of additional args.
+		 */
+		char *once_argv[] = {(char *)"-1"};
+		return uorb_top(once_argv, 1);
+	#endif
 		return uorb_top(argv + 2, argc - 2);
 	}
 

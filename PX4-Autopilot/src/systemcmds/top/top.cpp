@@ -82,6 +82,16 @@ extern "C" __EXPORT int top_main(int argc, char *argv[])
 		return 0;
 	}
 
+#if defined(CONFIG_ARCH_CHIP_RP2040)
+	/* RP2040 NSH console bring-up: keep `top` single-shot by default so the
+	 * shell remains responsive during dual-core debugging sessions.
+	 */
+	px4_sleep(1);
+	print_load(STDOUT_FILENO, &load);
+	cpuload_monitor_stop();
+	return 0;
+#endif
+
 	for (;;) {
 		print_load(STDOUT_FILENO, &load);
 

@@ -1161,6 +1161,44 @@ int cmd_ls(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 
   /* See if it is a single file */
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* RP2040 dual-core bring-up: avoid the upfront stat() path first, because
+   * inode-lock contention there is a frequent source of interactive stalls.
+   * Try directory traversal directly and only fall back to stat() if this is
+   * not a directory-like path.
+   */
+
+  nsh_output(vtbl, "%s:\n", fullpath);
+  ret = nsh_foreach_direntry(vtbl, "ls", fullpath, ls_handler,
+                             (FAR void *)((uintptr_t)lsflags));
+
+  if (ret == OK)
+    {
+      if ((lsflags & LSFLAGS_RECURSIVE) != 0)
+        {
+          ret = nsh_foreach_direntry(vtbl, "ls", fullpath, ls_recursive,
+                                     (FAR void *)((uintptr_t)lsflags));
+        }
+
+      nsh_freefullpath(fullpath);
+      return ret;
+    }
+
+  /* If traversal failed under contention, fail fast to keep the shell alive.
+   * If it is likely not a directory, continue with the existing stat/single
+   * file handling below.
+   */
+
+  if (ret == -EAGAIN)
+    {
+      fscmdprogress('S');
+      fscmdprogress('E');
+      nsh_error(vtbl, g_fmtcmdfailed, argv[0], "readdir", EAGAIN);
+      nsh_freefullpath(fullpath);
+      return ERROR;
+    }
+#endif
+
   for (int tries = 0; ; tries++)
     {
       ret = stat(fullpath, &st);
@@ -1170,11 +1208,11 @@ int cmd_ls(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
         }
 
 #ifdef CONFIG_ARCH_CHIP_RP2040
-      if (errno == EAGAIN && tries < 7)
+  if ((errno == EAGAIN || errno == EINTR) && tries < 2)
         {
           fscmdprogress('S');
           fscmdprogress('A');
-          usleep(2000);
+          usleep(1000);
           continue;
         }
 #endif
@@ -1183,6 +1221,31 @@ int cmd_ls(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 
   if (ret < 0)
     {
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      if (errno == EAGAIN)
+        {
+          /* RP2040 dual-core bring-up: inode lock contention can make the
+           * upfront stat() path appear hung. Fall back to direct directory
+           * traversal so plain `ls` remains interactive.
+           */
+
+          nsh_output(vtbl, "%s:\n", fullpath);
+          ret = nsh_foreach_direntry(vtbl, "ls", fullpath, ls_handler,
+                                     (FAR void *)((uintptr_t)lsflags));
+
+          if (ret == OK && (lsflags & LSFLAGS_RECURSIVE) != 0)
+            {
+              ret = nsh_foreach_direntry(vtbl, "ls", fullpath, ls_recursive,
+                                         (FAR void *)((uintptr_t)lsflags));
+            }
+
+          if (ret == OK)
+            {
+              nsh_freefullpath(fullpath);
+              return OK;
+            }
+        }
+#endif
       fscmdprogress('S');
       fscmdprogress('E');
       nsh_error(vtbl, g_fmtcmdfailed, argv[0], "stat", NSH_ERRNO);
@@ -1209,11 +1272,11 @@ int cmd_ls(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
                                      (FAR void *)((uintptr_t)lsflags));
 
 #ifdef CONFIG_ARCH_CHIP_RP2040
-          if (ret == -EAGAIN && tries < 7)
+          if ((ret == -EAGAIN || ret == -EINTR) && tries < 2)
             {
               fscmdprogress('S');
               fscmdprogress('B');
-              usleep(2000);
+              usleep(1000);
               continue;
             }
 #endif

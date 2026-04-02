@@ -32,6 +32,8 @@
 #include <errno.h>
 #include <termios.h>
 #include <assert.h>
+#include <poll.h>
+#include <syslog.h>
 
 #ifdef CONFIG_ARCH_CHIP_RP2040
 extern void arm_lowputc(char ch);
@@ -454,6 +456,32 @@ int nsh_session(FAR struct console_stdio_s *pstate,
 
       nsh_parse(vtbl, pstate->cn_line);
       fflush(pstate->cn_outstream);
+
+    #ifdef CONFIG_ARCH_CHIP_RP2040
+      /* RP2040 dual-core recovery fence: after command dispatch, drain stale
+       * RX bytes accumulated during command execution and yield briefly before
+       * re-entering readline().
+       */
+          {
+            struct pollfd pfd;
+            char dumpbuf[32];
+
+            pfd.fd = infd;
+            pfd.events = POLLIN;
+
+            while (poll(&pfd, 1, 0) > 0 && (pfd.revents & POLLIN))
+              {
+                if (read(infd, dumpbuf, sizeof(dumpbuf)) <= 0)
+                  {
+                    break;
+                  }
+              }
+          }
+
+                syslog(LOG_INFO, "NSH:drain done\n");
+
+      usleep(5000);
+    #endif
     }
 
   return ret;

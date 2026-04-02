@@ -28,6 +28,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <assert.h>
+#include <sched.h>
 
 #include <sys/boardctl.h>
 
@@ -265,6 +266,22 @@ int nsh_consolemain(int argc, FAR char *argv[])
 
 #ifdef CONFIG_ARCH_CHIP_RP2040
   nshcprogress('9');
+
+#ifdef CONFIG_SCHED_AFFINITY
+  {
+    /* Give SMP startup a short window to settle before pinning NSH. */
+    for (int wait_iters = 0; wait_iters < 100; wait_iters++)
+      {
+        usleep(5000);
+      }
+
+    cpu_set_t mask;
+    CPU_ZERO(&mask);
+    CPU_SET(0, &mask);
+    sched_setaffinity(0, sizeof(mask), &mask);
+  }
+#endif
+
   ret = nsh_rp2040_rebind_stdio(pstate);
   if (ret < 0)
     {

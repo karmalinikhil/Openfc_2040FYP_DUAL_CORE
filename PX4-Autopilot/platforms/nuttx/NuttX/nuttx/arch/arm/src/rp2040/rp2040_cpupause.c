@@ -37,6 +37,8 @@
 #include "sched/sched.h"
 #include "arm_internal.h"
 #include "hardware/rp2040_sio.h"
+#include "hardware/rp2040_memorymap.h"
+#include "hardware/rp2040_uart01.h"
 
 #ifdef CONFIG_SMP
 
@@ -70,6 +72,20 @@
 
 static volatile spinlock_t g_cpu_wait[CONFIG_SMP_NCPUS];
 static volatile spinlock_t g_cpu_paused[CONFIG_SMP_NCPUS];
+
+/* Raw UART0 TX marker path: bypass serial framework locks so we can trace
+ * pause handler progress even when normal console paths are contended.
+ */
+
+static void rp2040_raw_putc(char c)
+{
+  while (getreg32(RP2040_UART0_BASE + RP2040_UART_UARTFR_OFFSET) &
+         RP2040_UART_UARTFR_TXFF)
+    {
+    }
+
+  putreg32((uint32_t)c, RP2040_UART0_BASE + RP2040_UART_UARTDR_OFFSET);
+}
 
 /****************************************************************************
  * Name: rp2040_handle_irqreq
@@ -164,6 +180,8 @@ int up_cpu_paused(int cpu)
 {
   struct tcb_s *tcb = this_task();
 
+  rp2040_raw_putc('[');
+
   /* Update scheduler parameters */
 
   nxsched_suspend_scheduler(tcb);
@@ -207,6 +225,8 @@ int up_cpu_paused(int cpu)
 
   arm_restorestate(tcb->xcp.regs);
   spin_unlock(&g_cpu_wait[cpu]);
+
+  rp2040_raw_putc(']');
 
   return OK;
 }

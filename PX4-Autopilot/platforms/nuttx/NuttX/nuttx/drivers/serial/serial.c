@@ -949,91 +949,44 @@ static ssize_t uart_read(FAR struct file *filep,
         {
 #ifdef CONFIG_ARCH_CHIP_RP2040
           rp2040_uart_diag_repair(dev, 'r');
-          serialprogress('a');
 #endif
           /* Take the next character from the tail of the buffer */
 
 #ifdef CONFIG_ARCH_CHIP_RP2040
           if (rxbuf->buffer == NULL)
             {
-              serialprogress('!');
               rp2040_uart_diag_repair(dev, 'r');
               rxbuf->head = 0;
               rxbuf->tail = 0;
-
-              if (!rp2040_uart_tryreceive(dev, &ch))
-                {
-                  ch = '\r';
-                }
-
-              *buffer++ = ch;
-              recvd++;
-              serialprogress('k');
-              break;
+              continue;
             }
 
           if (rxbuf->size <= 0 || tail < 0 || tail >= rxbuf->size)
             {
-              serialprogress('?');
               rp2040_uart_diag_repair(dev, 'r');
               rxbuf->head = 0;
               rxbuf->tail = 0;
-
-              if (!rp2040_uart_tryreceive(dev, &ch))
-                {
-                  ch = '\r';
-                }
-
-              *buffer++ = ch;
-              recvd++;
-              serialprogress('k');
-              break;
+              continue;
             }
 #endif
 
-          /* RP2040 known-stable baseline: bypass risky ring dereference with
-           * a synthetic character so the session loop stays alive while we
-           * continue producer-side RX debugging.
+          /* RP2040: keep the read path simple and avoid synthetic character
+           * injection in normal operation.
            */
 #ifdef CONFIG_ARCH_CHIP_RP2040
           if ((uintptr_t)rxbuf->buffer < 0x20000000 || (uintptr_t)rxbuf->buffer > 0x20042000)
             {
-              serialprogress('B');
-              serialprogress('A');
-              serialprogress('D');
-              
-              /* Hex dump the corrupted pointer to see exactly what we're looking at */
-              uintptr_t val = (uintptr_t)rxbuf->buffer;
-              for (int i=28; i>=0; i-=4) {
-                  int nibble = (val >> i) & 0xF;
-                  serialprogress(nibble < 10 ? '0' + nibble : 'A' + nibble - 10);
-              }
-              serialprogress('_');
-              serialprogress('d');
-              serialprogress('e');
-              serialprogress('v');
-              serialprogress(':');
-              
-              uintptr_t dev_val = (uintptr_t)dev;
-              for (int i=28; i>=0; i-=4) {
-                  int nibble = (dev_val >> i) & 0xF;
-                  serialprogress(nibble < 10 ? '0' + nibble : 'A' + nibble - 10);
-              }
-              
-              if (!rp2040_uart_tryreceive(dev, &ch)) {
-                  ch = '\r'; /* safety fallback */
-              }
+              rp2040_uart_diag_repair(dev, 'r');
+              rxbuf->head = 0;
+              rxbuf->tail = 0;
+              continue;
             }
           else
             {
               ch = rxbuf->buffer[tail];
             }
-          serialprogress('^');
 #else
           ch = rxbuf->buffer[tail];
-#endif
-#ifdef CONFIG_ARCH_CHIP_RP2040
-          serialprogress('(');
 #endif
 
           /* Increment the tail index.  Most operations are done using the
@@ -1045,23 +998,14 @@ static ssize_t uart_read(FAR struct file *filep,
             {
               tail = 0;
             }
-#ifdef CONFIG_ARCH_CHIP_RP2040
-          serialprogress(')');
-#endif
 
           rxbuf->tail = tail;
-#ifdef CONFIG_ARCH_CHIP_RP2040
-          serialprogress('[');
-#endif
 
 #ifdef CONFIG_SERIAL_TERMIOS
           /* Do input processing if any is enabled */
 
           if (dev->tc_iflag & (INLCR | IGNCR | ICRNL))
             {
-#ifdef CONFIG_ARCH_CHIP_RP2040
-              serialprogress(']');
-#endif
               /* \n -> \r or \r -> \n translation? */
 
               if ((ch == '\n') && (dev->tc_iflag & INLCR))
@@ -1077,9 +1021,6 @@ static ssize_t uart_read(FAR struct file *filep,
 
               if ((ch == '\r') & (dev->tc_iflag & IGNCR))
                 {
-#ifdef CONFIG_ARCH_CHIP_RP2040
-                  serialprogress('{');
-#endif
                   continue;
                 }
             }
@@ -1096,17 +1037,8 @@ static ssize_t uart_read(FAR struct file *filep,
 
           /* Store the received character */
 
-#ifdef CONFIG_ARCH_CHIP_RP2040
-          serialprogress('}');
-#endif
           *buffer++ = ch;
-#ifdef CONFIG_ARCH_CHIP_RP2040
-          serialprogress('~');
-#endif
           recvd++;
-#ifdef CONFIG_ARCH_CHIP_RP2040
-          serialprogress('b');
-#endif
         }
 
 #ifdef CONFIG_DEV_SERIAL_FULLBLOCKS
