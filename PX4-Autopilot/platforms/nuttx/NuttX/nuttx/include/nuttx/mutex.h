@@ -31,6 +31,15 @@
 #include <unistd.h>
 #include <nuttx/semaphore.h>
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+/* RP2040 dual-core memory barrier - avoid including nuttx/arch.h to prevent circular deps */
+#  ifndef ARM_DSB
+#    define ARM_DSB() __asm__ __volatile__ ("dsb sy" ::: "memory")
+#  endif
+/* Forward declare up_puts for debug markers */
+extern void up_puts(const char *str);
+#endif
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -337,10 +346,20 @@ static inline int nxrmutex_lock(FAR rmutex_t *rmutex)
   pid_t tid = gettid();
   int ret;
 
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* RP2040 dual-core: Add memory barrier before reading rmutex state */
+  ARM_DSB();
+#endif
+
   if (rmutex->holder == tid)
     {
       DEBUGASSERT(rmutex->count < UINT16_MAX);
       rmutex->count++;
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      /* RP2040 dual-core: Ensure count increment visible to other core */
+      ARM_DSB();
+#endif
       ret = OK;
     }
   else
@@ -350,6 +369,11 @@ static inline int nxrmutex_lock(FAR rmutex_t *rmutex)
         {
           rmutex->holder = tid;
           rmutex->count = 1;
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+          /* RP2040 dual-core: Ensure holder/count visible to other core */
+          ARM_DSB();
+#endif
         }
     }
 
@@ -474,11 +498,21 @@ static inline int nxrmutex_unlock(FAR rmutex_t *rmutex)
     {
       rmutex->count = 0;
       rmutex->holder = NXRMUTEX_NO_HOLDER;
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      /* RP2040 dual-core: Ensure holder/count reset visible before mutex unlock */
+      ARM_DSB();
+#endif
       ret = nxmutex_unlock(&rmutex->mutex);
     }
   else
     {
       rmutex->count--;
+
+#ifdef CONFIG_ARCH_CHIP_RP2040
+      /* RP2040 dual-core: Ensure count decrement visible to other core */
+      ARM_DSB();
+#endif
     }
 
   return ret;

@@ -2388,6 +2388,7 @@ exit:
 
 static int nsh_parse_command(FAR struct nsh_vtbl_s *vtbl, FAR char *cmdline)
 {
+  parseprogress('C');  /* Command parse entry */
   NSH_MEMLIST_TYPE memlist;
   FAR char *argv[MAX_ARGV_ENTRIES];
   FAR char *saveptr;
@@ -2630,6 +2631,7 @@ static int nsh_parse_command(FAR struct nsh_vtbl_s *vtbl, FAR char *cmdline)
 
 int nsh_parse(FAR struct nsh_vtbl_s *vtbl, FAR char *cmdline)
 {
+  parseprogress('A');  /* NSH Parse entry */
 #ifdef NSH_DISABLE_SEMICOLON
   return nsh_parse_command(vtbl, cmdline);
 
@@ -2735,6 +2737,7 @@ int nsh_parse(FAR struct nsh_vtbl_s *vtbl, FAR char *cmdline)
     }
 
 #ifndef CONFIG_NSH_DISABLESCRIPT
+  parseprogress('Z');  /* NSH Parse exit OK path */
   return OK;
 #endif
 #endif

@@ -1076,6 +1076,8 @@ errout_with_nomemory:
 #ifndef CONFIG_NSH_DISABLE_LS
 int cmd_ls(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 {
+  nsh_output(vtbl, "MARKER_NSH_LS_COMMAND_START\n");
+
   struct stat st;
   FAR const char *relpath;
   unsigned int lsflags = 0;

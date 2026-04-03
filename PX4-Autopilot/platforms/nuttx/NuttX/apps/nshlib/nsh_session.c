@@ -335,12 +335,14 @@ int nsh_session(FAR struct console_stdio_s *pstate,
        */
 
       nshprogress('L');
+      nshprogress('R');  /* Before readline */
       ret = readline_fd(pstate->cn_line, CONFIG_NSH_LINELEN,
         infd, OUTFD(pstate));
-      nshprogress('l');
+      nshprogress('l');  /* After readline returns */
 
       if (ret > 0)
         {
+          nshprogress('S');  /* Readline success */
           /* Command line bytes are available and we are about to hand off
            * to parser/dispatcher.
            */
@@ -454,7 +456,9 @@ int nsh_session(FAR struct console_stdio_s *pstate,
 
       /* Parse process the command */
 
+      nshprogress('P');  /* Before nsh_parse call */
       nsh_parse(vtbl, pstate->cn_line);
+      nshprogress('p');  /* After nsh_parse call */
       fflush(pstate->cn_outstream);
 
     #ifdef CONFIG_ARCH_CHIP_RP2040

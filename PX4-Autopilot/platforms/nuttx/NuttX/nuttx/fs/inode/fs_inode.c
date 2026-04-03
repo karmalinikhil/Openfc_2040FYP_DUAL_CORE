@@ -44,7 +44,12 @@
  * Private Data
  ****************************************************************************/
 
+/* Use a simple semaphore instead of recursive mutex for RP2040 SMP stability */
+#ifdef CONFIG_ARCH_CHIP_RP2040
+static sem_t g_inode_sem = SEM_INITIALIZER(1);
+#else
 static rmutex_t g_inode_lock = NXRMUTEX_INITIALIZER;
+#endif
 
 /****************************************************************************
  * Public Functions
@@ -76,7 +81,28 @@ void inode_initialize(void)
 
 int inode_semtake(void)
 {
-  return nxrmutex_lock(&g_inode_lock);
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* RP2040: Use simple semaphore to avoid recursive mutex SMP issues */
+  return nxsem_wait(&g_inode_sem);
+#else
+  up_puts("MARKER_INODE_SEMTAKE_START");
+  
+  /* Debug: Check if g_inode_lock structure looks sane */
+  up_puts("MARKER_CHECKING_INODE_LOCK");
+  if (g_inode_lock.holder == NXRMUTEX_NO_HOLDER && g_inode_lock.count == 0)
+    {
+      up_puts("MARKER_INODE_LOCK_LOOKS_GOOD");
+    }
+  else
+    {
+      up_puts("MARKER_INODE_LOCK_CORRUPTED");
+    }
+    
+  up_puts("MARKER_BEFORE_NXRMUTEX_LOCK_CALL");
+  int ret = nxrmutex_lock(&g_inode_lock);
+  up_puts("MARKER_INODE_SEMTAKE_END");
+  return ret;
+#endif
 }
 
 /****************************************************************************
@@ -90,7 +116,12 @@ int inode_semtake(void)
 
 int inode_semtrytake(void)
 {
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* RP2040: Use simple semaphore to avoid recursive mutex SMP issues */
+  return nxsem_trywait(&g_inode_sem);
+#else
   return nxrmutex_trylock(&g_inode_lock);
+#endif
 }
 
 /****************************************************************************
@@ -103,5 +134,12 @@ int inode_semtrytake(void)
 
 void inode_semgive(void)
 {
+#ifdef CONFIG_ARCH_CHIP_RP2040
+  /* RP2040: Use simple semaphore to avoid recursive mutex SMP issues */
+  nxsem_post(&g_inode_sem);
+#else
+  up_puts("MARKER_INODE_SEMGIVE_START");
   DEBUGVERIFY(nxrmutex_unlock(&g_inode_lock));
+  up_puts("MARKER_INODE_SEMGIVE_END");
+#endif
 }

@@ -54,38 +54,15 @@ int inode_addref(FAR struct inode *inode)
 
   if (inode)
     {
-#ifdef CONFIG_ARCH_CHIP_RP2040
-      /* Keep this path lock-safe on RP2040: avoid unlocked i_crefs updates.
-  * Use bounded try-lock retries and fail fast on contention.
-       */
-
-      ret = -EAGAIN;
-      for (int tries = 0; tries < 8; tries++)
-        {
-          ret = inode_semtrytake();
-          if (ret >= 0)
-            {
-              break;
-            }
-
-          if (ret != -EAGAIN)
-            {
-              return ret;
-            }
-
-          usleep(1000);
-        }
-
-      if (ret < 0)
-        {
-          return ret;
-        }
-#else
+      /* Use blocking semaphore for reliable reference counting on all platforms */
       ret = inode_semtake();
       if (ret >= 0)
-#endif
         {
           inode->i_crefs++;
+          
+          /* Memory barrier for dual-core visibility (RP2040 has no cache coherency) */
+          __asm__ __volatile__ ("dsb sy" ::: "memory");
+          
           inode_semgive();
         }
     }

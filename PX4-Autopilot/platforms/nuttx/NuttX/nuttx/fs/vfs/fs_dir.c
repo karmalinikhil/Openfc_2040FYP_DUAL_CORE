@@ -372,6 +372,9 @@ static int read_pseudodir(FAR struct fs_dirent_s *dir,
 
   /* Now get the inode to visit next time that readdir() is called */
 
+  /* DEBUG: Add marker to verify this code path executes */
+  up_puts("MARKER_FS_DIR_READ_START");
+
   inode_semtake();
 
   prev       = pdir->next;
@@ -380,16 +383,36 @@ static int read_pseudodir(FAR struct fs_dirent_s *dir,
   if (pdir->next != NULL)
     {
       /* Increment the reference count on this next node */
+      up_puts("MARKER_FS_DIR_INCREMENT_REFS");
 
       pdir->next->i_crefs++;
+      
+      /* Memory barrier for dual-core visibility (RP2040 has no cache coherency) */
+      __asm__ __volatile__ ("dsb sy" ::: "memory");
+    }
+
+  /* Release the previous node WHILE still holding the semaphore
+   * to prevent other cores from modifying it between semgive and release
+   */
+  if (prev != NULL)
+    {
+      up_puts("MARKER_FS_DIR_DECREMENT_REFS");
+      /* Decrement directly since we already hold the semaphore */
+      if (prev->i_crefs > 0)
+        {
+          prev->i_crefs--;
+          
+          /* Memory barrier for dual-core visibility */
+          __asm__ __volatile__ ("dsb sy" ::: "memory");
+        }
     }
 
   inode_semgive();
+  
+  /* Memory barrier after semaphore release to ensure visibility */
+  __asm__ __volatile__ ("dsb sy" ::: "memory");
 
-  if (prev != NULL)
-    {
-      inode_release(prev);
-    }
+  up_puts("MARKER_FS_DIR_READ_END");
 
   return 0;
 }
@@ -397,6 +420,8 @@ static int read_pseudodir(FAR struct fs_dirent_s *dir,
 static int dir_open(FAR struct file *filep)
 {
   FAR struct fs_dirent_s *dir = filep->f_priv;
+  
+  up_puts("MARKER_DIR_OPEN_CALLED");
 
   return dir_allocate(filep, dir->fd_path);
 }

@@ -69,6 +69,9 @@ void inode_release(FAR struct inode *node)
       if (node->i_crefs)
         {
           node->i_crefs--;
+          
+          /* Memory barrier for dual-core visibility (RP2040 has no cache coherency) */
+          __asm__ __volatile__ ("dsb sy" ::: "memory");
         }
 
       /* If the subtree was previously deleted and the reference
